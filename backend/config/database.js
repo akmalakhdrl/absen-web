@@ -7,7 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 
 // Tentukan path file db dari env, relatif terhadap folder backend.
 const DB_FILE = process.env.DB_FILE || './data/attendance.db';
@@ -22,10 +22,10 @@ if (!fs.existsSync(dbDir)) {
 }
 
 // Buka koneksi database (file akan dibuat otomatis bila belum ada).
-const db = new Database(dbPath);
+const db = new DatabaseSync(dbPath);
 
 // Aktifkan WAL mode untuk performa concurrent read yang lebih baik.
-db.pragma('journal_mode = WAL');
+db.exec('PRAGMA journal_mode = WAL');
 
 /**
  * Skema tabel absensi.
