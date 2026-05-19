@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: absensi-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: npm install --prefix backend
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: PORT
+        value: 3000
+      - key: ENFORCE_WIFI_VALIDATION
+        value: "false"
+      - key: ALLOWED_IP_PREFIXES
+        value: ""
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DB_FILE
+        value: ./data/attendance.db
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: MAX_UPLOAD_SIZE
+        value: "5242880"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: absensi-data
+      mountPath: /opt/render/project/src/backend/data
+      sizeGB: 1

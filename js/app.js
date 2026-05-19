@@ -14,27 +14,56 @@
   'use strict';
 
   // ------------------------------- Config ------------------------------
-  // Tentukan base URL API secara dinamis agar berjalan mulus di:
-  // - localhost:3000 (backend langsung serve frontend)
-  // - LAN IP:3000 dari HP/perangkat lain di jaringan WiFi yang sama
-  // - Live Server (port 5500) yang membuka file dari komputer yang sama
-  // - Vercel/Railway production (relative path)
+  // Tentukan base URL API dengan prioritas:
+  // 1. APP_CONFIG.API_BASE_URL (dari js/config.js) — wajib diisi untuk GitHub Pages
+  // 2. Same-origin bila frontend di-serve oleh backend (port 3000/80/443)
+  // 3. Auto-detect: hostname yang sama di port 3000 (untuk LAN / Live Server)
+  // 4. Fallback http://localhost:3000 untuk skenario file://
   const API_BASE = (() => {
+    const cfg = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
+    if (cfg) return cfg.replace(/\/$/, '');
+
     if (window.location.protocol.startsWith('http')) {
       const port = window.location.port;
-      // Same-origin sudah benar bila frontend di-serve oleh backend
-      // (port 3000) atau di production (tanpa port / 80 / 443).
       if (port === '3000' || port === '' || port === '80' || port === '443') {
         return '';
       }
-      // Live Server / dev tool lain: arahkan ke hostname yang sama, port 3000.
-      // Ini bekerja dari LAN: hostname akan berisi IP PC server, bukan localhost.
       return `${window.location.protocol}//${window.location.hostname}:3000`;
     }
-    // file:// fallback (paling akhir, kurang ideal — sarankan buka via http).
     return 'http://localhost:3000';
   })();
   console.info('[config] API_BASE =', API_BASE || '(same-origin)');
+
+  // Peringatan dini bila deploy di GitHub Pages tanpa mengisi config.
+  if (window.location.hostname.endsWith('.github.io') && !API_BASE) {
+    console.error(
+      '[config] GitHub Pages terdeteksi tapi APP_CONFIG.API_BASE_URL kosong. ' +
+      'Edit js/config.js dan isi URL backend production (Railway/Render).'
+    );
+  }
+
+  // Peringatan mixed content: frontend HTTPS memanggil backend HTTP.
+  if (
+    window.location.protocol === 'https:' &&
+    API_BASE.startsWith('http://')
+  ) {
+    console.error(
+      '[config] Mixed content terdeteksi: frontend HTTPS memanggil backend HTTP. ' +
+      'Browser akan memblokir request. Pastikan backend Anda dideploy dengan HTTPS.'
+    );
+  }
+
+  // Peringatan kamera tidak akan jalan bila bukan HTTPS / localhost.
+  const isSecureContext =
+    window.isSecureContext ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+  if (!isSecureContext) {
+    console.warn(
+      '[config] Konteks tidak aman (bukan HTTPS / localhost). ' +
+      'Akses kamera kemungkinan akan ditolak browser.'
+    );
+  }
 
   // ------------------------------- State -------------------------------
   const state = {

@@ -1,145 +1,191 @@
 # Sistem Absensi Modern
 
-Website absensi modern dengan fitur foto wajah via kamera, validasi WiFi berdasarkan IP jaringan lokal, penyimpanan data ke database SQLite, dan export data ke Excel (.xlsx).
+Website absensi modern dengan fitur foto wajah via kamera, validasi WiFi berdasarkan IP jaringan lokal, penyimpanan data ke database SQLite (native `node:sqlite`), dan export data ke Excel (.xlsx).
 
 ## Fitur Utama
 
 - Form absensi dengan validasi (nama, NIP/ID, jenis absensi)
 - Pengambilan foto wajah real-time dari kamera (WebRTC)
 - Validasi WiFi/jaringan lokal berdasarkan IP pada middleware backend
-- Penyimpanan data ke database SQLite
+- Penyimpanan data ke SQLite (modul native bawaan Node.js, tanpa kompilasi C++)
 - Penyimpanan foto ke folder `uploads/` (dibuat otomatis)
 - Export data absensi ke file Excel (`.xlsx`) menggunakan ExcelJS
-- Timestamp otomatis (tanggal dan jam) saat submit
+- Timestamp otomatis (tanggal & jam) saat submit
+- Halaman data dilindungi password admin
 - Tampilan responsive, tema biru putih, card layout, animasi hover, loading state
-- Error handling lengkap di sisi server dan client
+- Auto-detect IP LAN saat startup, listen di `0.0.0.0` untuk akses dari HP
 
 ## Struktur Project
 
 ```
 absensi-web/
+├── index.html                      # Frontend SPA (tab Absen & Data)
+├── css/style.css
+├── js/
+│   ├── config.js                   # Konfigurasi API_BASE_URL production
+│   └── app.js                      # Logika aplikasi
 ├── backend/
-│   ├── config/
-│   │   └── database.js            # Inisialisasi SQLite
-│   ├── controllers/
-│   │   └── attendanceController.js
+│   ├── config/database.js          # Inisialisasi node:sqlite
+│   ├── controllers/attendanceController.js
 │   ├── middleware/
-│   │   ├── wifiValidator.js       # Validasi IP/jaringan lokal
-│   │   └── uploadHandler.js       # Multer config untuk upload foto
-│   ├── routes/
-│   │   └── attendanceRoutes.js
-│   ├── uploads/                   # Otomatis dibuat saat server start
-│   ├── data/                      # SQLite db file disimpan di sini
+│   │   ├── wifiValidator.js
+│   │   ├── adminValidator.js
+│   │   └── uploadHandler.js
+│   ├── routes/attendanceRoutes.js
+│   ├── uploads/                    # Otomatis dibuat
+│   ├── data/                       # SQLite db file
 │   ├── server.js
 │   ├── package.json
 │   └── .env.example
-├── frontend/
-│   ├── index.html
-│   ├── data.html                  # Halaman lihat data absensi
-│   ├── css/
-│   │   └── style.css
-│   ├── js/
-│   │   ├── app.js                 # Logika halaman absensi + kamera
-│   │   └── data.js                # Logika halaman data
-│   └── assets/
+├── package.json                    # Root scripts
+├── render.yaml                     # Deploy config Render
+├── railway.json                    # Deploy config Railway
+├── vercel.json                     # Deploy config Vercel (kurang ideal: ephemeral)
 ├── .gitignore
-├── package.json                   # Root package (scripts dev/start)
 └── README.md
 ```
 
 ## Persyaratan
 
-- Node.js 18+ (disarankan 20+)
+- **Node.js 22.5.0+** (wajib untuk modul native `node:sqlite`)
 - Browser modern dengan dukungan `getUserMedia` (Chrome, Edge, Firefox)
-- Akses HTTPS atau `localhost` agar kamera dapat diaktifkan
+- Akses **HTTPS** atau `localhost` agar kamera dapat diaktifkan
 
-## Instalasi
-
-```bash
-# Clone repo
-git clone https://github.com/<username>/absensi-web.git
-cd absensi-web
-
-# Install dependencies backend
-cd backend
-npm install
-cd ..
-```
-
-## Menjalankan
-
-Dari folder root:
+## Menjalankan Lokal
 
 ```bash
-# Mode development (otomatis reload)
-npm run dev
-
-# Mode produksi
-npm start
+git clone https://github.com/<username>/<repo>.git
+cd <repo>
+npm install                           # auto-install backend dependencies
+cp backend/.env.example backend/.env  # atau salin manual di Windows
+npm run dev                           # mode development (nodemon)
+# atau
+npm start                             # mode produksi
 ```
 
-Server berjalan di `http://localhost:3000`.
-
-Frontend di-serve secara statis oleh Express dari folder `frontend/`.
-
-## Konfigurasi WiFi (IP Allowlist)
-
-Validasi WiFi dilakukan dengan mencocokkan IP klien terhadap daftar prefix IP yang diizinkan. Atur di file `backend/.env`:
+Server akan tampil di terminal:
 
 ```
+==============================================
+ Sistem Absensi - Server Started
+==============================================
+ Local       : http://localhost:3000
+ Network     : http://192.168.18.180:3000   <- buka dari HP
+==============================================
+```
+
+Buka `http://localhost:3000` di browser PC, atau alamat `Network` dari HP yang terhubung WiFi yang sama.
+
+## Konfigurasi `.env`
+
+```ini
 PORT=3000
-ALLOWED_IP_PREFIXES=192.168.1.,192.168.0.,10.0.0.,127.0.0.1,::1
+ALLOWED_IP_PREFIXES=                  # kosong = otomatis terima semua private LAN
+ENFORCE_WIFI_VALIDATION=true
 DB_FILE=./data/attendance.db
+UPLOAD_DIR=./uploads
+MAX_UPLOAD_SIZE=5242880
+ADMIN_PASSWORD=admin123               # password halaman Data
 ```
 
-- `ALLOWED_IP_PREFIXES`: dipisah koma. Request akan diizinkan bila IP klien di-prefix oleh salah satu nilai.
-- Untuk testing lokal, `127.0.0.1` dan `::1` (IPv6 localhost) sudah di-allow secara default.
-
-Salin file contoh:
-
-```bash
-cp backend/.env.example backend/.env
-```
+`ALLOWED_IP_PREFIXES` kosong = WiFi validator otomatis mengizinkan semua subnet privat (`192.168.x`, `10.x`, `172.16-31.x`) plus localhost. Isi koma-separator untuk membatasi (mis. `192.168.18.,10.0.0.`).
 
 ## API Endpoints
 
-Base URL: `http://localhost:3000/api`
+| Method | Endpoint                | Auth   | Deskripsi                                          |
+| ------ | ----------------------- | ------ | -------------------------------------------------- |
+| GET    | `/api/health`           | -      | Health check                                       |
+| GET    | `/api/network-check`    | WiFi   | Verifikasi IP klien diizinkan                      |
+| POST   | `/api/attendance`       | WiFi   | Submit absensi (multipart, field `photo`)          |
+| GET    | `/api/attendance`       | Admin  | Daftar data absensi (header `X-Admin-Password`)    |
+| GET    | `/api/attendance/export`| Admin  | Download Excel (query `?password=xxx`)             |
 
-| Method | Endpoint              | Deskripsi                                          |
-| ------ | --------------------- | -------------------------------------------------- |
-| POST   | `/attendance`         | Submit absensi (multipart/form-data, field `photo`)|
-| GET    | `/attendance`         | Ambil seluruh data absensi (JSON)                  |
-| GET    | `/attendance/export`  | Download data absensi sebagai file Excel (.xlsx)   |
-| GET    | `/health`             | Health check                                       |
+---
 
-### Body POST `/attendance`
+## Deploy ke Production
 
-Form-data:
+Frontend dan backend **harus dipisah** karena GitHub Pages adalah static hosting (tidak bisa menjalankan Node).
 
-- `name` (string, required)
-- `employee_id` (string, required)
-- `type` (string, required: `masuk` / `pulang`)
-- `note` (string, optional)
-- `photo` (file, required, image)
+### Opsi 1: GitHub Pages (Frontend) + Render (Backend) — Direkomendasikan
 
-## Deploy
+#### A. Deploy backend ke Render
 
-### Railway
+1. Push repo ini ke GitHub
+2. Login ke [render.com](https://render.com), pilih **New → Blueprint**
+3. Pilih repo Anda, Render akan membaca `render.yaml` otomatis
+4. Set environment variable `ADMIN_PASSWORD` dengan nilai pilihan Anda
+5. Deploy → Anda akan mendapat URL HTTPS seperti `https://absensi-api.onrender.com`
 
-1. Push repo ke GitHub
-2. Buat project baru di Railway, pilih "Deploy from GitHub Repo"
-3. Set Root Directory ke `backend` atau biarkan default jika menggunakan root `package.json`
-4. Tambahkan environment variables sesuai `backend/.env.example`
-5. Railway otomatis menjalankan `npm start`
+Folder `backend/data` di-mount ke disk persistent (1 GB) sehingga SQLite tidak hilang saat redeploy.
 
-### Vercel
+#### B. Konfigurasi frontend untuk panggil backend production
 
-Untuk Vercel disarankan deploy backend sebagai Node serverless. Catatan:
+Edit `js/config.js`:
 
-- SQLite di Vercel bersifat ephemeral, untuk produksi pertimbangkan database eksternal.
-- Folder `uploads/` juga ephemeral di Vercel, gunakan storage eksternal (S3, Supabase Storage, dll.) untuk produksi.
+```js
+window.APP_CONFIG = {
+  API_BASE_URL: 'https://absensi-api.onrender.com',
+};
+```
 
-Untuk project ini Railway / VPS lebih direkomendasikan.
+Commit dan push perubahan tersebut.
+
+#### C. Aktifkan GitHub Pages
+
+1. Repo GitHub → **Settings → Pages**
+2. Source: **Deploy from a branch**
+3. Branch: `main`, Folder: `/ (root)`
+4. Save → tunggu 1-2 menit
+5. URL frontend: `https://<username>.github.io/<repo>/`
+
+> **Penting**: GitHub Pages adalah HTTPS. Backend Anda **wajib HTTPS** juga (Render & Railway sudah otomatis HTTPS). Backend HTTP akan diblokir browser sebagai mixed content.
+
+### Opsi 2: Railway (Backend)
+
+1. [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
+2. Railway akan membaca `railway.json` & `package.json` root
+3. Tambahkan environment variables (lihat `backend/.env.example`)
+4. URL backend: `https://<projectname>.up.railway.app`
+5. Edit `js/config.js` dengan URL tersebut, push
+
+> Railway free tier memberikan disk persistent untuk SQLite & uploads.
+
+### Opsi 3: Vercel (Backend) — TIDAK Direkomendasikan
+
+Vercel filesystem **ephemeral**: SQLite database & folder `uploads/` akan reset setiap deploy/cold-start. Hanya cocok untuk demo singkat. Untuk produksi gunakan Render atau Railway.
+
+---
+
+## Troubleshooting
+
+### "Tidak terhubung" / "Failed to fetch"
+
+- **Pastikan backend online**: buka `<API_BASE_URL>/api/health` di browser, harus return JSON
+- **Cek `js/config.js`**: `API_BASE_URL` harus diisi URL backend production saat deploy
+- **Cek mixed content**: jika frontend HTTPS (GitHub Pages) memanggil backend HTTP → diblokir browser. Backend wajib HTTPS
+- **Cek CORS**: backend sudah konfigurasi `cors()` untuk semua origin, allow header `X-Admin-Password`
+
+### "Server bermasalah"
+
+- Backend berjalan tapi `/api/health` return non-2xx. Cek log Render/Railway
+- Atau Anda membuka frontend via Live Server (port 5500) tanpa backend lokal di port 3000
+
+### Kamera tidak aktif
+
+- WebRTC butuh **HTTPS atau `localhost`**
+- Untuk testing dari HP via IP LAN, gunakan `chrome://flags/#unsafely-treat-insecure-origin-as-secure` atau tunnel `ngrok http 3000`
+- Setelah deploy ke GitHub Pages + Render/Railway, semuanya HTTPS sehingga kamera otomatis aktif
+
+### "WiFi tidak terdaftar" (HTTP 403)
+
+- IP klien tidak match `ALLOWED_IP_PREFIXES` di `.env`
+- Solusi cepat: kosongkan `ALLOWED_IP_PREFIXES=` (auto-allow semua private LAN)
+- Atau tambahkan prefix subnet Anda, mis. `192.168.18.`
+
+### Data hilang setelah redeploy (Render)
+
+- Pastikan blok `disk` di `render.yaml` aktif (mount ke `backend/data`)
+- Free tier Render: disk hanya untuk paid plan. Untuk benar-benar persistent, upgrade ke Starter ($7/mo) atau gunakan Railway
 
 ## Lisensi
 
