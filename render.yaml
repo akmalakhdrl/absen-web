@@ -7,11 +7,11 @@ services:
     rootDir: .
     buildCommand: npm install --prefix backend
     startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 22.11.0
-      - key: PORT
-        value: 3000
       - key: ENFORCE_WIFI_VALIDATION
         value: "false"
       - key: ALLOWED_IP_PREFIXES
@@ -24,9 +24,10 @@ services:
         value: ./uploads
       - key: MAX_UPLOAD_SIZE
         value: "5242880"
-    healthCheckPath: /api/health
-    autoDeploy: true
-    disk:
-      name: absensi-data
-      mountPath: /opt/render/project/src/backend/data
-      sizeGB: 1
+# Catatan: Render free tier tidak menyediakan persistent disk.
+# Database SQLite & folder uploads akan reset setiap redeploy.
+# Untuk produksi sungguhan, upgrade ke Starter plan ($7/mo) lalu uncomment:
+#    disk:
+#      name: absensi-data
+#      mountPath: /opt/render/project/src/backend/data
+#      sizeGB: 1
