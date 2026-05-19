@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>Sistem Absensi</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div>
+          <h1 class="brand-title">Sistem Absensi</h1>
+          <p class="brand-subtitle">Foto wajah &middot; Validasi WiFi &middot; Realtime</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="index.html" class="nav-link active">Absen</a>
+        <a href="data.html" class="nav-link">Data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <section class="grid">
+      <!-- Card Kamera -->
+      <div class="card camera-card">
+        <div class="card-header">
+          <h2>Foto Wajah</h2>
+          <span id="cameraStatus" class="badge badge-muted">Menyiapkan kamera...</span>
+        </div>
+
+        <div class="camera-wrapper">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas" hidden></canvas>
+          <img id="preview" alt="Preview foto" hidden />
+          <div id="cameraOverlay" class="camera-overlay">
+            <div class="spinner"></div>
+            <p>Memuat kamera...</p>
+          </div>
+        </div>
+
+        <div class="camera-actions">
+          <button type="button" id="btnCapture" class="btn btn-primary" disabled>
+            Ambil Foto
+          </button>
+          <button type="button" id="btnRetake" class="btn btn-secondary" hidden>
+            Ulangi
+          </button>
+        </div>
+      </div>
+
+      <!-- Card Form -->
+      <div class="card form-card">
+        <div class="card-header">
+          <h2>Data Absensi</h2>
+          <span id="wifiStatus" class="badge badge-muted">Cek jaringan...</span>
+        </div>
+
+        <form id="attendanceForm" class="form" novalidate>
+          <div class="form-group">
+            <label for="name">Nama Lengkap</label>
+            <input type="text" id="name" name="name" placeholder="Contoh: Budi Santoso" required />
+            <small class="error-text" data-error-for="name"></small>
+          </div>
+
+          <div class="form-group">
+            <label for="employee_id">NIP / ID Karyawan</label>
+            <input type="text" id="employee_id" name="employee_id" placeholder="Contoh: 198501012010" required />
+            <small class="error-text" data-error-for="employee_id"></small>
+          </div>
+
+          <div class="form-group">
+            <label for="type">Jenis Absensi</label>
+            <select id="type" name="type" required>
+              <option value="">-- Pilih jenis --</option>
+              <option value="masuk">Masuk</option>
+              <option value="pulang">Pulang</option>
+            </select>
+            <small class="error-text" data-error-for="type"></small>
+          </div>
+
+          <div class="form-group">
+            <label for="note">Catatan (opsional)</label>
+            <textarea id="note" name="note" rows="3" placeholder="Tambahkan catatan jika perlu..."></textarea>
+          </div>
+
+          <div class="info-row">
+            <div class="info-item">
+              <span class="info-label">Tanggal</span>
+              <span id="currentDate" class="info-value">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Jam</span>
+              <span id="currentTime" class="info-value">-</span>
+            </div>
+          </div>
+
+          <button type="submit" id="btnSubmit" class="btn btn-primary btn-block">
+            <span class="btn-label">Submit Absensi</span>
+            <span class="btn-spinner" hidden></span>
+          </button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast notifikasi -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; <span id="year"></span> Sistem Absensi. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
