@@ -38,10 +38,6 @@ const rootDir = path.join(__dirname, '..');
 app.use('/css', express.static(path.join(rootDir, 'css')));
 app.use('/js', express.static(path.join(rootDir, 'js')));
 
-app.get('/data.html', (req, res) => {
-  res.sendFile(path.join(rootDir, 'data.html'));
-});
-
 // API routes.
 app.use('/api', attendanceRoutes);
 
