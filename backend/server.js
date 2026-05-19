@@ -86,13 +86,35 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+// Daftar IP LAN aktif untuk ditampilkan saat startup (memudahkan akses dari HP).
+function getLanIps() {
+  const os = require('os');
+  const ips = [];
+  const ifaces = os.networkInterfaces();
+  Object.values(ifaces).forEach((iface) => {
+    iface?.forEach((info) => {
+      if (info.family === 'IPv4' && !info.internal) {
+        ips.push(info.address);
+      }
+    });
+  });
+  return ips;
+}
+
+// Listen di 0.0.0.0 agar dapat diakses dari perangkat lain di jaringan WiFi yang sama.
+app.listen(PORT, '0.0.0.0', () => {
+  const lanIps = getLanIps();
   console.log('==============================================');
   console.log(' Sistem Absensi - Server Started');
   console.log('==============================================');
   console.log(` Local       : http://localhost:${PORT}`);
+  lanIps.forEach((ip) => {
+    console.log(` Network     : http://${ip}:${PORT}`);
+  });
   console.log(` Upload dir  : ${uploadPath}`);
   console.log(` Enforce WiFi: ${process.env.ENFORCE_WIFI_VALIDATION || 'true'}`);
-  console.log(` Allowed IP  : ${process.env.ALLOWED_IP_PREFIXES || '(none)'}`);
+  console.log(` Allowed IP  : ${process.env.ALLOWED_IP_PREFIXES || '(auto: private LAN ranges)'}`);
+  console.log('==============================================');
+  console.log(' Buka dari HP: gunakan salah satu alamat Network di atas');
   console.log('==============================================');
 });

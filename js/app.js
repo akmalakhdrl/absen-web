@@ -14,11 +14,27 @@
   'use strict';
 
   // ------------------------------- Config ------------------------------
-  // Tentukan base URL API secara dinamis agar berjalan mulus di localhost (port 3000),
-  // saat dibuka via Live Server (port 5500), maupun saat di-deploy ke production.
-  const API_BASE = (window.location.port === '3000' || (window.location.protocol === 'http:' && !window.location.port))
-    ? ''
-    : 'http://localhost:3000';
+  // Tentukan base URL API secara dinamis agar berjalan mulus di:
+  // - localhost:3000 (backend langsung serve frontend)
+  // - LAN IP:3000 dari HP/perangkat lain di jaringan WiFi yang sama
+  // - Live Server (port 5500) yang membuka file dari komputer yang sama
+  // - Vercel/Railway production (relative path)
+  const API_BASE = (() => {
+    if (window.location.protocol.startsWith('http')) {
+      const port = window.location.port;
+      // Same-origin sudah benar bila frontend di-serve oleh backend
+      // (port 3000) atau di production (tanpa port / 80 / 443).
+      if (port === '3000' || port === '' || port === '80' || port === '443') {
+        return '';
+      }
+      // Live Server / dev tool lain: arahkan ke hostname yang sama, port 3000.
+      // Ini bekerja dari LAN: hostname akan berisi IP PC server, bukan localhost.
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+    // file:// fallback (paling akhir, kurang ideal — sarankan buka via http).
+    return 'http://localhost:3000';
+  })();
+  console.info('[config] API_BASE =', API_BASE || '(same-origin)');
 
   // ------------------------------- State -------------------------------
   const state = {
