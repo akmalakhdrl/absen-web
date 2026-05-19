@@ -8,6 +8,7 @@ const express = require('express');
 const router = express.Router();
 
 const wifiValidator = require('../middleware/wifiValidator');
+const adminValidator = require('../middleware/adminValidator');
 const { upload } = require('../middleware/uploadHandler');
 const controller = require('../controllers/attendanceController');
 
@@ -50,9 +51,9 @@ router.post(
 );
 
 // GET /api/attendance         -> ambil seluruh data absensi
-router.get('/attendance', controller.getAttendance);
+router.get('/attendance', adminValidator(), controller.getAttendance);
 
 // GET /api/attendance/export  -> download file Excel
-router.get('/attendance/export', controller.exportExcel);
+router.get('/attendance/export', adminValidator(), controller.exportExcel);
 
 module.exports = router;

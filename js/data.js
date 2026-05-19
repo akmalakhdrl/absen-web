@@ -110,12 +110,53 @@
     render();
   }
 
+  // ------------------------------- Auth --------------------------------
+  function getAdminPassword() {
+    let password = sessionStorage.getItem('admin_password');
+    if (!password) {
+      password = prompt('Masukkan Password Admin untuk melihat data:');
+      if (password) {
+        sessionStorage.setItem('admin_password', password);
+      }
+    }
+    return password;
+  }
+
+  function handleAuthError() {
+    sessionStorage.removeItem('admin_password');
+    alert('Password admin salah atau tidak sah!');
+    loadData(); // Coba lagi (akan memicu prompt ulang)
+  }
+
   // ------------------------------- Fetch -------------------------------
   async function loadData() {
+    const password = getAdminPassword();
+    if (!password) {
+      setEmpty('Akses ditolak. Segarkan halaman dan masukkan password admin.');
+      totalCount.textContent = 'Akses Ditolak';
+      return;
+    }
+
+    // Update link download Excel agar menyertakan password sebagai query param
+    const btnExport = $('#btnExport');
+    if (btnExport) {
+      btnExport.href = `/api/attendance/export?password=${encodeURIComponent(password)}`;
+    }
+
     setLoading();
     totalCount.textContent = 'Memuat data...';
     try {
-      const res = await fetch('/api/attendance');
+      const res = await fetch('/api/attendance', {
+        headers: {
+          'X-Admin-Password': password,
+        },
+      });
+
+      if (res.status === 401) {
+        handleAuthError();
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data?.message || 'Gagal memuat data');
