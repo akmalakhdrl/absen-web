@@ -19,28 +19,30 @@
   // 2. Same-origin bila frontend di-serve oleh backend (port 3000/80/443)
   // 3. Auto-detect: hostname yang sama di port 3000 (untuk LAN / Live Server)
   // 4. Fallback http://localhost:3000 untuk skenario file://
-  const API_BASE = (() => {
-    const cfg = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
-    if (cfg) return cfg.replace(/\/$/, '');
+  const isGithubPages = window.location.hostname.endsWith('.github.io');
+  const cfgUrl = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
 
-    if (window.location.protocol.startsWith('http')) {
-      const port = window.location.port;
-      if (port === '3000' || port === '' || port === '80' || port === '443') {
-        return '';
-      }
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
+  let API_BASE = '';
+  let BACKEND_NOT_CONFIGURED = false;
+
+  if (cfgUrl) {
+    API_BASE = cfgUrl.replace(/\/$/, '');
+  } else if (isGithubPages) {
+    // Deploy di GitHub Pages tanpa config = backend belum di-set.
+    // Jangan fallback ke same-origin (akan menghasilkan 404/405).
+    BACKEND_NOT_CONFIGURED = true;
+    API_BASE = '';
+  } else if (window.location.protocol.startsWith('http')) {
+    const port = window.location.port;
+    if (port === '3000' || port === '' || port === '80' || port === '443') {
+      API_BASE = '';
+    } else {
+      API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
     }
-    return 'http://localhost:3000';
-  })();
-  console.info('[config] API_BASE =', API_BASE || '(same-origin)');
-
-  // Peringatan dini bila deploy di GitHub Pages tanpa mengisi config.
-  if (window.location.hostname.endsWith('.github.io') && !API_BASE) {
-    console.error(
-      '[config] GitHub Pages terdeteksi tapi APP_CONFIG.API_BASE_URL kosong. ' +
-      'Edit js/config.js dan isi URL backend production (Railway/Render).'
-    );
+  } else {
+    API_BASE = 'http://localhost:3000';
   }
+  console.info('[config] API_BASE =', API_BASE || '(same-origin)', 'configured:', !BACKEND_NOT_CONFIGURED);
 
   // Peringatan mixed content: frontend HTTPS memanggil backend HTTP.
   if (
@@ -49,7 +51,7 @@
   ) {
     console.error(
       '[config] Mixed content terdeteksi: frontend HTTPS memanggil backend HTTP. ' +
-      'Browser akan memblokir request. Pastikan backend Anda dideploy dengan HTTPS.'
+      'Browser akan memblokir request. Backend wajib HTTPS.'
     );
   }
 
@@ -63,6 +65,43 @@
       '[config] Konteks tidak aman (bukan HTTPS / localhost). ' +
       'Akses kamera kemungkinan akan ditolak browser.'
     );
+  }
+
+  /**
+   * Tampilkan banner setup di atas main content saat backend belum dikonfigurasi
+   * (skenario: deploy GitHub Pages tanpa edit js/config.js).
+   */
+  function showBackendSetupBanner() {
+    if (document.getElementById('backendSetupBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'backendSetupBanner';
+    banner.style.cssText =
+      'background:#fef3c7;border:1px solid #f59e0b;color:#92400e;' +
+      'padding:14px 18px;margin:16px 20px;border-radius:8px;' +
+      'font-size:14px;line-height:1.5;';
+    banner.innerHTML =
+      '<strong>Backend belum dikonfigurasi.</strong><br>' +
+      'Edit <code>js/config.js</code> dan isi <code>API_BASE_URL</code> dengan URL backend production Anda ' +
+      '(mis. <code>https://absensi-api.onrender.com</code>), lalu commit & push ke GitHub.<br>' +
+      '<small>Detail panduan ada di README.md.</small>';
+    const main = document.querySelector('.main-content');
+    if (main) main.insertBefore(banner, main.firstChild);
+  }
+
+  /**
+   * Wrapper fetch yang menolak request bila backend belum dikonfigurasi,
+   * sehingga tidak ada lagi 404/405 dari domain GitHub Pages.
+   */
+  async function apiFetch(pathOrUrl, options) {
+    if (BACKEND_NOT_CONFIGURED) {
+      const err = new Error('Backend belum dikonfigurasi. Edit js/config.js.');
+      err.code = 'BACKEND_NOT_CONFIGURED';
+      throw err;
+    }
+    const url = pathOrUrl.startsWith('http')
+      ? pathOrUrl
+      : API_BASE + pathOrUrl;
+    return fetch(url, options);
   }
 
   // ------------------------------- State -------------------------------
@@ -273,16 +312,20 @@
 
   // ------------------------------ WiFi Check ---------------------------
   async function checkWifi() {
+    if (BACKEND_NOT_CONFIGURED) {
+      setBadge(wifiStatus, 'Backend belum di-set', 'warning');
+      return;
+    }
     setBadge(wifiStatus, 'Cek jaringan...', 'muted');
     try {
-      const res = await fetch(API_BASE + '/api/health');
+      const res = await apiFetch('/api/health');
       if (!res.ok) {
         setBadge(wifiStatus, 'Server bermasalah', 'warning');
         return;
       }
 
       // Endpoint ringan khusus pengecekan WiFi (GET, tanpa upload).
-      const probe = await fetch(API_BASE + '/api/network-check');
+      const probe = await apiFetch('/api/network-check');
       if (probe.status === 403) {
         setBadge(wifiStatus, 'WiFi tidak terdaftar', 'danger');
         return;
@@ -364,7 +407,7 @@
 
     setSubmitLoading(true);
     try {
-      const res = await fetch(API_BASE + '/api/attendance', {
+      const res = await apiFetch('/api/attendance', {
         method: 'POST',
         body: fd,
       });
@@ -384,7 +427,11 @@
       retakePhoto();
     } catch (err) {
       console.error('[submit] network/parse error:', err);
-      showToast('Tidak dapat terhubung ke server: ' + err.message, 'error', 5500);
+      if (err.code === 'BACKEND_NOT_CONFIGURED') {
+        showToast('Backend belum dikonfigurasi. Edit js/config.js terlebih dahulu.', 'error', 6500);
+      } else {
+        showToast('Tidak dapat terhubung ke server: ' + err.message, 'error', 5500);
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -481,6 +528,13 @@
   }
 
   async function loadData() {
+    if (BACKEND_NOT_CONFIGURED) {
+      setEmptyTable('Backend belum dikonfigurasi. Edit js/config.js terlebih dahulu.');
+      totalCount.textContent = 'Backend belum di-set';
+      if (btnExport) btnExport.removeAttribute('href');
+      return;
+    }
+
     const password = getAdminPassword();
     if (!password) {
       // Jika user cancel password, kembalikan ke tab absen secara paksa
@@ -496,7 +550,7 @@
     setLoadingTable();
     totalCount.textContent = 'Memuat data...';
     try {
-      const res = await fetch(API_BASE + '/api/attendance', {
+      const res = await apiFetch('/api/attendance', {
         headers: {
           'X-Admin-Password': password,
         },
@@ -609,7 +663,11 @@
     // Jalankan Absen secara default
     switchTab('absen');
     checkWifi();
-    initGPS();
+
+    // Tampilkan banner bila deploy GitHub Pages tanpa config backend
+    if (BACKEND_NOT_CONFIGURED) {
+      showBackendSetupBanner();
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);
