@@ -31,6 +31,18 @@ function isAllowedIp(clientIp, allowedPrefixes) {
   const localhostList = ['127.0.0.1', '::1', 'localhost'];
   if (localhostList.includes(clientIp)) return true;
 
+  // Jika allowedPrefixes kosong, izinkan seluruh IP private/WiFi lokal secara otomatis.
+  // Ini mencakup 192.168.x.x, 10.x.x.x, dan 172.16.x.x s/d 172.31.x.x.
+  const isPrivate =
+    clientIp.startsWith('192.168.') ||
+    clientIp.startsWith('10.') ||
+    clientIp.startsWith('172.'); // standard local private subnet
+
+  if (allowedPrefixes.length === 0) {
+    return isPrivate;
+  }
+
+  // Jika ada allowedPrefixes yang didefinisikan, lakukan pencocokan range.
   return allowedPrefixes.some((prefix) => {
     const trimmed = prefix.trim();
     if (!trimmed) return false;

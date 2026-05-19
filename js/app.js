@@ -13,6 +13,13 @@
 (function () {
   'use strict';
 
+  // ------------------------------- Config ------------------------------
+  // Tentukan base URL API secara dinamis agar berjalan mulus di localhost (port 3000),
+  // saat dibuka via Live Server (port 5500), maupun saat di-deploy ke production.
+  const API_BASE = (window.location.port === '3000' || (window.location.protocol === 'http:' && !window.location.port))
+    ? ''
+    : 'http://localhost:3000';
+
   // ------------------------------- State -------------------------------
   const state = {
     activeTab: 'absen', // 'absen' | 'data'
@@ -21,8 +28,6 @@
     rows: [],
     filtered: [],
     searchTerm: '',
-    latitude: null,
-    longitude: null,
   };
 
   // ------------------------------- Refs --------------------------------
@@ -225,9 +230,9 @@
   async function checkWifi() {
     setBadge(wifiStatus, 'Cek jaringan...', 'muted');
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(API_BASE + '/api/health');
       if (res.ok) {
-        const probe = await fetch('/api/attendance', {
+        const probe = await fetch(API_BASE + '/api/attendance', {
           method: 'POST',
           headers: { 'X-Probe': '1' },
         });
@@ -240,44 +245,9 @@
         setBadge(wifiStatus, 'Server bermasalah', 'warning');
       }
     } catch (err) {
+      console.error('[checkWifi] error:', err);
       setBadge(wifiStatus, 'Tidak terhubung', 'danger');
     }
-  }
-
-  // ------------------------------ GPS Check ----------------------------
-  function initGPS() {
-    const gpsStatus = $('#gpsStatus');
-    if (!gpsStatus) return;
-
-    if (!navigator.geolocation) {
-      setBadge(gpsStatus, 'GPS: tak didukung', 'danger');
-      return;
-    }
-
-    setBadge(gpsStatus, 'GPS: mencari...', 'muted');
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        state.latitude = position.coords.latitude;
-        state.longitude = position.coords.longitude;
-        setBadge(gpsStatus, 'GPS: Aktif', 'success');
-      },
-      (err) => {
-        console.error('[gps] error:', err);
-        let msg = 'GPS: Error';
-        if (err.code === 1) {
-          msg = 'GPS: Ditolak';
-        } else if (err.code === 2) {
-          msg = 'GPS: Off';
-        }
-        setBadge(gpsStatus, msg, 'danger');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
   }
 
   // ------------------------- Form Validation ---------------------------
@@ -342,13 +312,11 @@
     fd.append('employee_id', values.employee_id.trim());
     fd.append('type', values.type);
     if (values.note) fd.append('note', values.note.trim());
-    if (state.latitude) fd.append('latitude', state.latitude);
-    if (state.longitude) fd.append('longitude', state.longitude);
     fd.append('photo', state.capturedBlob, `absensi-${Date.now()}.jpg`);
 
     setSubmitLoading(true);
     try {
-      const res = await fetch('/api/attendance', {
+      const res = await fetch(API_BASE + '/api/attendance', {
         method: 'POST',
         body: fd,
       });
@@ -414,23 +382,22 @@
     const html = state.filtered
       .map((row, idx) => {
         const typeClass = row.type === 'masuk' ? 'masuk' : 'pulang';
-        const locationHtml = row.latitude && row.longitude
-          ? `<a href="https://www.google.com/maps?q=${row.latitude},${row.longitude}" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary); font-weight: 500; text-decoration: none;">Maps (${parseFloat(row.latitude).toFixed(4)}, ${parseFloat(row.longitude).toFixed(4)})</a>`
-          : '-';
+        const absolutePhotoUrl = row.photo_url.startsWith('http')
+          ? row.photo_url
+          : (API_BASE + row.photo_url);
         return `
           <tr>
             <td>${idx + 1}</td>
             <td>
-              <img class="thumb" src="${escapeHtml(row.photo_url)}"
+              <img class="thumb" src="${escapeHtml(absolutePhotoUrl)}"
                 alt="Foto ${escapeHtml(row.name)}"
-                data-photo="${escapeHtml(row.photo_url)}" />
+                data-photo="${escapeHtml(absolutePhotoUrl)}" />
             </td>
             <td>${escapeHtml(row.name)}</td>
             <td>${escapeHtml(row.employee_id)}</td>
             <td><span class="type-badge ${typeClass}">${escapeHtml(row.type)}</span></td>
             <td>${escapeHtml(row.date)}</td>
             <td>${escapeHtml(row.time)}</td>
-            <td>${locationHtml}</td>
             <td>${escapeHtml(row.note || '-')}</td>
           </tr>
         `;
@@ -473,13 +440,13 @@
 
     // Pasang token/password di link export Excel
     if (btnExport) {
-      btnExport.href = `/api/attendance/export?password=${encodeURIComponent(password)}`;
+      btnExport.href = `${API_BASE}/api/attendance/export?password=${encodeURIComponent(password)}`;
     }
 
     setLoadingTable();
     totalCount.textContent = 'Memuat data...';
     try {
-      const res = await fetch('/api/attendance', {
+      const res = await fetch(API_BASE + '/api/attendance', {
         headers: {
           'X-Admin-Password': password,
         },
