@@ -33,11 +33,14 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Serve foto upload secara statis pada /uploads/<filename>.
 app.use('/uploads', express.static(uploadPath));
 
-// Serve frontend statis.
-const frontendDir = path.join(__dirname, '..', 'frontend');
-if (fs.existsSync(frontendDir)) {
-  app.use(express.static(frontendDir));
-}
+// Serve frontend statis dari root folder secara selektif untuk keamanan.
+const rootDir = path.join(__dirname, '..');
+app.use('/css', express.static(path.join(rootDir, 'css')));
+app.use('/js', express.static(path.join(rootDir, 'js')));
+
+app.get('/data.html', (req, res) => {
+  res.sendFile(path.join(rootDir, 'data.html'));
+});
 
 // API routes.
 app.use('/api', attendanceRoutes);
@@ -53,12 +56,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Fallback ke index.html untuk root.
-app.get('/', (req, res, next) => {
-  const indexFile = path.join(frontendDir, 'index.html');
-  if (fs.existsSync(indexFile)) {
-    return res.sendFile(indexFile);
-  }
-  next();
+app.get('/', (req, res) => {
+  res.sendFile(path.join(rootDir, 'index.html'));
+});
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(rootDir, 'index.html'));
 });
 
 // 404 handler.

@@ -6,15 +6,25 @@
       "use": "@vercel/node"
     },
     {
-      "src": "frontend/**",
+      "src": "css/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "js/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.html",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "backend/server.js" },
     { "src": "/uploads/(.*)", "dest": "backend/server.js" },
-    { "src": "/(.*\\.(css|js|png|jpg|jpeg|svg|ico|webp))", "dest": "frontend/$1" },
-    { "src": "/", "dest": "frontend/index.html" },
-    { "src": "/(.*)", "dest": "frontend/$1" }
+    { "src": "/css/(.*)", "dest": "css/$1" },
+    { "src": "/js/(.*)", "dest": "js/$1" },
+    { "src": "/data.html", "dest": "data.html" },
+    { "src": "/", "dest": "index.html" },
+    { "src": "/index.html", "dest": "index.html" }
   ]
 }

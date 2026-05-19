@@ -51,6 +51,7 @@
     )}</td></tr>`;
   }
 
+  // Render rows to table body.
   function render() {
     if (state.filtered.length === 0) {
       setEmpty(
