@@ -38,6 +38,14 @@ exports.submitAttendance = (req, res) => {
   try {
     const { name, employee_id, type, note, latitude, longitude } = req.body || {};
 
+    // Log permintaan masuk untuk membantu debugging.
+    console.log('[submitAttendance] incoming:', {
+      ip: req.clientIp || req.ip,
+      hasPhoto: !!photoFile,
+      photoSize: photoFile?.size,
+      bodyFields: Object.keys(req.body || {}),
+    });
+
     // Validasi field wajib.
     const errors = [];
     if (!name || !name.trim()) errors.push('Nama wajib diisi');
@@ -50,6 +58,7 @@ exports.submitAttendance = (req, res) => {
     if (errors.length > 0) {
       // Bila ada file ter-upload tapi validasi gagal, hapus file tersebut.
       if (photoFile?.path) safeUnlink(photoFile.path);
+      console.warn('[submitAttendance] validation failed:', errors);
       return res.status(400).json({
         success: false,
         error: 'VALIDATION_ERROR',
@@ -109,6 +118,7 @@ exports.submitAttendance = (req, res) => {
       success: false,
       error: 'SERVER_ERROR',
       message: 'Terjadi kesalahan saat menyimpan absensi',
+      detail: err.message,
     });
   }
 };

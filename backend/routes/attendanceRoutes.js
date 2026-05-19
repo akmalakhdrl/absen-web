@@ -42,6 +42,16 @@ function uploadSinglePhoto(req, res, next) {
   });
 }
 
+// GET /api/network-check -> cek apakah jaringan klien diizinkan (tanpa upload)
+// Endpoint ringan ini menggantikan probe POST yang sebelumnya membebani multer.
+router.get('/network-check', wifiValidator(), (req, res) => {
+  res.json({
+    success: true,
+    message: 'Jaringan diizinkan',
+    detectedIp: req.clientIp || req.ip || null,
+  });
+});
+
 // POST /api/attendance  -> submit absensi (cek WiFi -> upload -> simpan)
 router.post(
   '/attendance',

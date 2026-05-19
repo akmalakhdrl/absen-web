@@ -231,19 +231,22 @@
     setBadge(wifiStatus, 'Cek jaringan...', 'muted');
     try {
       const res = await fetch(API_BASE + '/api/health');
-      if (res.ok) {
-        const probe = await fetch(API_BASE + '/api/attendance', {
-          method: 'POST',
-          headers: { 'X-Probe': '1' },
-        });
-        if (probe.status === 403) {
-          setBadge(wifiStatus, 'WiFi tidak terdaftar', 'danger');
-          return;
-        }
-        setBadge(wifiStatus, 'Jaringan OK', 'success');
-      } else {
+      if (!res.ok) {
         setBadge(wifiStatus, 'Server bermasalah', 'warning');
+        return;
       }
+
+      // Endpoint ringan khusus pengecekan WiFi (GET, tanpa upload).
+      const probe = await fetch(API_BASE + '/api/network-check');
+      if (probe.status === 403) {
+        setBadge(wifiStatus, 'WiFi tidak terdaftar', 'danger');
+        return;
+      }
+      if (!probe.ok) {
+        setBadge(wifiStatus, 'Cek jaringan gagal', 'warning');
+        return;
+      }
+      setBadge(wifiStatus, 'Jaringan OK', 'success');
     } catch (err) {
       console.error('[checkWifi] error:', err);
       setBadge(wifiStatus, 'Tidak terhubung', 'danger');
@@ -324,8 +327,10 @@
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.success) {
-        const msg = data?.message || 'Gagal mengirim absensi';
-        showToast(msg, 'error', 4500);
+        const msg = data?.message || `Gagal mengirim absensi (HTTP ${res.status})`;
+        const detail = data?.detail ? ` — ${data.detail}` : '';
+        console.error('[submit] server response error:', res.status, data);
+        showToast(msg + detail, 'error', 5500);
         return;
       }
 
@@ -333,8 +338,8 @@
       form.reset();
       retakePhoto();
     } catch (err) {
-      console.error('[submit] error:', err);
-      showToast('Tidak dapat terhubung ke server', 'error');
+      console.error('[submit] network/parse error:', err);
+      showToast('Tidak dapat terhubung ke server: ' + err.message, 'error', 5500);
     } finally {
       setSubmitLoading(false);
     }
