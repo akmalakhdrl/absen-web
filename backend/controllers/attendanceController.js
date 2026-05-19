@@ -36,7 +36,7 @@ exports.submitAttendance = (req, res) => {
   const photoFile = req.file;
 
   try {
-    const { name, employee_id, type, note } = req.body || {};
+    const { name, employee_id, type, note, latitude, longitude } = req.body || {};
 
     // Validasi field wajib.
     const errors = [];
@@ -69,8 +69,8 @@ exports.submitAttendance = (req, res) => {
 
     const stmt = db.prepare(`
       INSERT INTO attendance
-        (name, employee_id, type, note, photo_path, ip_address, date, time, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (name, employee_id, type, note, photo_path, ip_address, date, time, latitude, longitude, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const info = stmt.run(
@@ -82,6 +82,8 @@ exports.submitAttendance = (req, res) => {
       req.clientIp || req.ip || null,
       date,
       time,
+      latitude ? parseFloat(latitude) : null,
+      longitude ? parseFloat(longitude) : null,
       createdAt
     );
 
@@ -121,7 +123,7 @@ exports.getAttendance = (req, res) => {
     const rows = db
       .prepare(
         `SELECT id, name, employee_id, type, note, photo_path,
-                ip_address, date, time, created_at
+                ip_address, date, time, latitude, longitude, created_at
          FROM attendance
          ORDER BY id DESC`
       )
@@ -156,7 +158,7 @@ exports.exportExcel = async (req, res) => {
   try {
     const rows = db
       .prepare(
-        `SELECT id, name, employee_id, type, note, ip_address, date, time, created_at
+        `SELECT id, name, employee_id, type, note, ip_address, date, time, latitude, longitude, created_at
          FROM attendance
          ORDER BY id ASC`
       )
@@ -178,6 +180,8 @@ exports.exportExcel = async (req, res) => {
       { header: 'Tanggal', key: 'date', width: 14 },
       { header: 'Jam', key: 'time', width: 12 },
       { header: 'IP Address', key: 'ip_address', width: 18 },
+      { header: 'Latitude', key: 'latitude', width: 15 },
+      { header: 'Longitude', key: 'longitude', width: 15 },
       { header: 'Catatan', key: 'note', width: 30 },
       { header: 'Dibuat Pada', key: 'created_at', width: 22 },
     ];
@@ -209,6 +213,8 @@ exports.exportExcel = async (req, res) => {
         date: row.date,
         time: row.time,
         ip_address: row.ip_address || '-',
+        latitude: row.latitude || '-',
+        longitude: row.longitude || '-',
         note: row.note || '-',
         created_at: row.created_at,
       });

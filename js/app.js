@@ -21,6 +21,8 @@
     rows: [],
     filtered: [],
     searchTerm: '',
+    latitude: null,
+    longitude: null,
   };
 
   // ------------------------------- Refs --------------------------------
@@ -242,6 +244,42 @@
     }
   }
 
+  // ------------------------------ GPS Check ----------------------------
+  function initGPS() {
+    const gpsStatus = $('#gpsStatus');
+    if (!gpsStatus) return;
+
+    if (!navigator.geolocation) {
+      setBadge(gpsStatus, 'GPS: tak didukung', 'danger');
+      return;
+    }
+
+    setBadge(gpsStatus, 'GPS: mencari...', 'muted');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        state.latitude = position.coords.latitude;
+        state.longitude = position.coords.longitude;
+        setBadge(gpsStatus, 'GPS: Aktif', 'success');
+      },
+      (err) => {
+        console.error('[gps] error:', err);
+        let msg = 'GPS: Error';
+        if (err.code === 1) {
+          msg = 'GPS: Ditolak';
+        } else if (err.code === 2) {
+          msg = 'GPS: Off';
+        }
+        setBadge(gpsStatus, msg, 'danger');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }
+
   // ------------------------- Form Validation ---------------------------
   function clearErrors() {
     document.querySelectorAll('.form-group').forEach((g) => g.classList.remove('invalid'));
@@ -304,6 +342,8 @@
     fd.append('employee_id', values.employee_id.trim());
     fd.append('type', values.type);
     if (values.note) fd.append('note', values.note.trim());
+    if (state.latitude) fd.append('latitude', state.latitude);
+    if (state.longitude) fd.append('longitude', state.longitude);
     fd.append('photo', state.capturedBlob, `absensi-${Date.now()}.jpg`);
 
     setSubmitLoading(true);
@@ -352,11 +392,11 @@
 
   function setLoadingTable() {
     tableBody.innerHTML =
-      '<tr><td colspan="8" class="loading-cell">Memuat...</td></tr>';
+      '<tr><td colspan="9" class="loading-cell">Memuat...</td></tr>';
   }
 
   function setEmptyTable(message) {
-    tableBody.innerHTML = `<tr><td colspan="8" class="empty-cell">${escapeHtml(
+    tableBody.innerHTML = `<tr><td colspan="9" class="empty-cell">${escapeHtml(
       message
     )}</td></tr>`;
   }
@@ -374,6 +414,9 @@
     const html = state.filtered
       .map((row, idx) => {
         const typeClass = row.type === 'masuk' ? 'masuk' : 'pulang';
+        const locationHtml = row.latitude && row.longitude
+          ? `<a href="https://www.google.com/maps?q=${row.latitude},${row.longitude}" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary); font-weight: 500; text-decoration: none;">Maps (${parseFloat(row.latitude).toFixed(4)}, ${parseFloat(row.longitude).toFixed(4)})</a>`
+          : '-';
         return `
           <tr>
             <td>${idx + 1}</td>
@@ -387,6 +430,7 @@
             <td><span class="type-badge ${typeClass}">${escapeHtml(row.type)}</span></td>
             <td>${escapeHtml(row.date)}</td>
             <td>${escapeHtml(row.time)}</td>
+            <td>${locationHtml}</td>
             <td>${escapeHtml(row.note || '-')}</td>
           </tr>
         `;
@@ -548,6 +592,7 @@
     // Jalankan Absen secara default
     switchTab('absen');
     checkWifi();
+    initGPS();
   }
 
   document.addEventListener('DOMContentLoaded', init);

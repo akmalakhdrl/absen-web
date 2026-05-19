@@ -53,9 +53,23 @@ db.exec(`
     ip_address TEXT,
     date TEXT NOT NULL,
     time TEXT NOT NULL,
+    latitude REAL,
+    longitude REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
   );
 `);
+
+// Migrasi dinamis jika kolom latitude/longitude belum ada (karena db sudah terbentuk sebelumnya).
+try {
+  db.exec(`ALTER TABLE attendance ADD COLUMN latitude REAL;`);
+} catch (e) {
+  // Abaikan error jika kolom sudah ada
+}
+try {
+  db.exec(`ALTER TABLE attendance ADD COLUMN longitude REAL;`);
+} catch (e) {
+  // Abaikan error jika kolom sudah ada
+}
 
 // Index untuk mempercepat query berdasarkan tanggal.
 db.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);`);

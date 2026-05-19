@@ -59,7 +59,10 @@
         <div class="card form-card">
           <div class="card-header">
             <h2>Data Absensi</h2>
-            <span id="wifiStatus" class="badge badge-muted">Cek jaringan...</span>
+            <div class="card-actions">
+              <span id="wifiStatus" class="badge badge-muted">Cek jaringan...</span>
+              <span id="gpsStatus" class="badge badge-muted">GPS: mencari...</span>
+            </div>
           </div>
 
           <form id="attendanceForm" class="form" novalidate>
@@ -141,12 +144,13 @@
                 <th>Jenis</th>
                 <th>Tanggal</th>
                 <th>Jam</th>
+                <th>Lokasi</th>
                 <th>Catatan</th>
               </tr>
             </thead>
             <tbody id="tableBody">
               <tr>
-                <td colspan="8" class="loading-cell">Memuat...</td>
+                <td colspan="9" class="loading-cell">Memuat...</td>
               </tr>
             </tbody>
           </table>
