@@ -14,10 +14,15 @@ import { db } from './firebase.js';
 import {
   collection,
   addDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
   getDocs,
   query,
   orderBy,
+  limit,
+  startAfter,
+  writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
 (function () {
@@ -80,6 +85,8 @@ import {
   const totalCount = $('#totalCount');
   const searchInput = $('#searchInput');
   const btnRefresh = $('#btnRefresh');
+  const btnExport = $('#btnExport');
+  const btnDeleteAll = $('#btnDeleteAll');
 
   // Modal Preview
   const photoModal = $('#photoModal');
@@ -344,11 +351,11 @@ import {
 
   function setLoadingTable() {
     tableBody.innerHTML =
-      '<tr><td colspan="6" class="loading-cell">Memuat...</td></tr>';
+      '<tr><td colspan="7" class="loading-cell">Memuat...</td></tr>';
   }
 
   function setEmptyTable(message) {
-    tableBody.innerHTML = `<tr><td colspan="6" class="empty-cell">${escapeHtml(
+    tableBody.innerHTML = `<tr><td colspan="7" class="empty-cell">${escapeHtml(
       message
     )}</td></tr>`;
   }
@@ -378,6 +385,11 @@ import {
             <td>${escapeHtml(row.kelas)}</td>
             <td>${escapeHtml(row.date)}</td>
             <td>${escapeHtml(row.time)}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-delete" data-id="${escapeHtml(
+                row.id
+              )}">Hapus</button>
+            </td>
           </tr>
         `;
       })
@@ -389,6 +401,68 @@ import {
     tableBody.querySelectorAll('.thumb').forEach((img) => {
       img.addEventListener('click', () => openModal(img.dataset.photo));
     });
+  }
+
+  async function deleteRowById(id) {
+    if (!ensureAdminAccess()) return;
+    if (!id) return;
+    if (!confirm('Hapus data ini?')) return;
+    try {
+      await deleteDoc(doc(db, 'attendance', id));
+      showToast('Data berhasil dihapus', 'success');
+      loadData();
+    } catch (err) {
+      console.error('[delete] error:', err);
+      showToast('Gagal menghapus data: ' + err.message, 'error', 5500);
+    }
+  }
+
+  async function deleteAllData() {
+    if (!ensureAdminAccess()) return;
+    if (!confirm('Hapus SEMUA data absensi? Tindakan ini tidak bisa dibatalkan.')) return;
+    setLoadingTable();
+    try {
+      let lastDoc = null;
+      while (true) {
+        const q = lastDoc
+          ? query(attendanceCollection, orderBy('timestamp', 'desc'), startAfter(lastDoc), limit(450))
+          : query(attendanceCollection, orderBy('timestamp', 'desc'), limit(450));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) break;
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((docSnap) => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+        if (snapshot.size < 450) break;
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      }
+      showToast('Semua data berhasil dihapus', 'success');
+      loadData();
+    } catch (err) {
+      console.error('[deleteAll] error:', err);
+      showToast('Gagal menghapus semua data: ' + err.message, 'error', 5500);
+      loadData();
+    }
+  }
+
+  function exportToExcel() {
+    if (!ensureAdminAccess()) return;
+    if (!window.XLSX) {
+      showToast('Library Excel belum siap', 'error');
+      return;
+    }
+    const rows = state.rows.map((row, idx) => ({
+      No: idx + 1,
+      Nama: row.name,
+      Kelas: row.kelas,
+      Tanggal: row.date,
+      Jam: row.time,
+    }));
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+    window.XLSX.writeFile(wb, 'absensi.xlsx');
   }
 
   function applyFilter() {
@@ -511,6 +585,8 @@ import {
 
     // Event Refresh & Cari Data
     btnRefresh.addEventListener('click', loadData);
+    if (btnExport) btnExport.addEventListener('click', exportToExcel);
+    if (btnDeleteAll) btnDeleteAll.addEventListener('click', deleteAllData);
     let searchTimer;
     searchInput.addEventListener('input', (e) => {
       clearTimeout(searchTimer);
@@ -525,6 +601,11 @@ import {
       if (e.target.dataset && 'closeModal' in e.target.dataset) {
         closeModal();
       }
+    });
+    tableBody.addEventListener('click', (e) => {
+      const target = e.target.closest('.btn-delete');
+      if (!target) return;
+      deleteRowById(target.dataset.id);
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !photoModal.hidden) closeModal();
