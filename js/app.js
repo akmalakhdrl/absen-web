@@ -5,12 +5,12 @@
  * - Manajemen tab (Absen & Data)
  * - Kontrol kamera (WebRTC) & capture foto
  * - Validasi form & submit absensi ke Firestore
- * - Upload foto ke Firebase Storage
+ * - Simpan foto base64 ke Firestore
  * - Riwayat data absensi, pencarian/filter
  * - Modal preview foto & clock realtime
  */
 
-import { db, storage } from './firebase.js';
+import { db } from './firebase.js';
 import {
   collection,
   addDoc,
@@ -19,11 +19,6 @@ import {
   query,
   orderBy,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
 (function () {
   'use strict';
@@ -130,6 +125,15 @@ import {
       .replace(/'/g, '&#039;');
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Gagal membaca foto'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // ----------------------------- Camera --------------------------------
   async function initCamera() {
     if (state.stream) return; // Kamera sudah aktif
@@ -201,8 +205,12 @@ import {
       return;
     }
 
-    const w = video.videoWidth;
-    const h = video.videoHeight;
+    const maxWidth = 640;
+    const rawWidth = video.videoWidth;
+    const rawHeight = video.videoHeight;
+    const scale = Math.min(1, maxWidth / rawWidth);
+    const w = Math.round(rawWidth * scale);
+    const h = Math.round(rawHeight * scale);
     canvas.width = w;
     canvas.height = h;
 
@@ -231,7 +239,7 @@ import {
         setBadge(cameraStatus, 'Foto siap', 'success');
       },
       'image/jpeg',
-      0.85
+      0.65
     );
   }
 
@@ -310,18 +318,13 @@ import {
 
     setSubmitLoading(true);
     try {
-      const fileName = `attendance/${Date.now()}-${Math.round(Math.random() * 1e9)}.jpg`;
-      const storageRef = ref(storage, fileName);
-      await uploadBytes(storageRef, state.capturedBlob, {
-        contentType: 'image/jpeg',
-      });
-      const photoUrl = await getDownloadURL(storageRef);
+      const photoBase64 = await blobToDataUrl(state.capturedBlob);
 
       await addDoc(attendanceCollection, {
         name: values.name.trim(),
         kelas: values.kelas.trim(),
         timestamp: serverTimestamp(),
-        fotoUrl: photoUrl,
+        photoBase64,
       });
 
       showToast('Absensi berhasil disimpan', 'success');
@@ -361,7 +364,7 @@ import {
 
     const html = state.filtered
       .map((row, idx) => {
-        const absolutePhotoUrl = row.fotoUrl || '';
+        const absolutePhotoUrl = row.photoBase64 || '';
         return `
           <tr>
             <td>${idx + 1}</td>
@@ -423,7 +426,7 @@ import {
           id: doc.id,
           name: data.name || '-',
           kelas: data.kelas || '-',
-          fotoUrl: data.fotoUrl || '',
+          photoBase64: data.photoBase64 || '',
           date,
           time,
         };
@@ -459,12 +462,6 @@ import {
       sectionData.hidden = true;
       initCamera();
     } else if (tab === 'data') {
-      // Prompt password dlu sebelum switch tab
-      const password = getAdminPassword();
-      if (!password) {
-        // User menolak input password, batalkan switch tab
-        return;
-      }
       state.activeTab = 'data';
       tabData.classList.add('active');
       tabAbsen.classList.remove('active');
