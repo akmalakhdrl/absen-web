@@ -70,9 +70,13 @@
             </div>
 
             <div class="form-group">
-              <label for="kelas">Kelas</label>
-              <input type="text" id="kelas" name="kelas" placeholder="Contoh: XII RPL 1" required />
-              <small class="error-text" data-error-for="kelas"></small>
+              <label for="status">Jenis Absensi</label>
+              <select id="status" name="status" required>
+                <option value="">-- Pilih --</option>
+                <option value="berangkat">Berangkat</option>
+                <option value="pulang">Pulang</option>
+              </select>
+              <small class="error-text" data-error-for="status"></small>
             </div>
 
             <div class="info-row">
@@ -111,7 +115,7 @@
         </div>
 
         <div class="filter-bar">
-          <input type="text" id="searchInput" class="search-input" placeholder="Cari nama / kelas..." />
+          <input type="text" id="searchInput" class="search-input" placeholder="Cari nama / status..." />
         </div>
 
         <div class="table-wrapper">
@@ -121,7 +125,7 @@
                 <th>No</th>
                 <th>Foto</th>
                 <th>Nama</th>
-                <th>Kelas</th>
+                <th>Status</th>
                 <th>Tanggal</th>
                 <th>Jam</th>
                 <th>Aksi</th>
@@ -156,7 +160,7 @@
     </div>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

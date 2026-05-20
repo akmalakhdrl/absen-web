@@ -142,6 +142,39 @@ import {
     });
   }
 
+  function downscaleDataUrl(dataUrl, maxWidth = 160, quality = 0.5) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('Gagal memproses foto'));
+      img.src = dataUrl;
+    });
+  }
+
+  function downloadBuffer(buffer, fileName) {
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // ----------------------------- Camera --------------------------------
   async function initCamera() {
     if (state.stream) return; // Kamera sudah aktif
@@ -292,8 +325,8 @@ import {
       setError('name', 'Nama wajib diisi');
       valid = false;
     }
-    if (!values.kelas || !values.kelas.trim()) {
-      setError('kelas', 'Kelas wajib diisi');
+    if (!values.status || !values.status.trim()) {
+      setError('status', 'Pilih jenis absensi');
       valid = false;
     }
     if (!state.capturedBlob) {
@@ -319,7 +352,7 @@ import {
 
     const values = {
       name: form.name.value,
-      kelas: form.kelas.value,
+      status: form.status.value,
     };
 
     if (!validateForm(values)) return;
@@ -330,7 +363,7 @@ import {
 
       await addDoc(attendanceCollection, {
         name: values.name.trim(),
-        kelas: values.kelas.trim(),
+        status: values.status.trim(),
         timestamp: serverTimestamp(),
         photoBase64,
       });
@@ -382,7 +415,7 @@ import {
                 data-photo="${escapeHtml(absolutePhotoUrl)}" />
             </td>
             <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(row.kelas)}</td>
+            <td>${escapeHtml(row.status)}</td>
             <td>${escapeHtml(row.date)}</td>
             <td>${escapeHtml(row.time)}</td>
             <td>
@@ -446,23 +479,56 @@ import {
     }
   }
 
-  function exportToExcel() {
+  async function exportToExcel() {
     if (!ensureAdminAccess()) return;
-    if (!window.XLSX) {
+    if (!window.ExcelJS) {
       showToast('Library Excel belum siap', 'error');
       return;
     }
-    const rows = state.rows.map((row, idx) => ({
-      No: idx + 1,
-      Nama: row.name,
-      Kelas: row.kelas,
-      Tanggal: row.date,
-      Jam: row.time,
-    }));
-    const ws = window.XLSX.utils.json_to_sheet(rows);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
-    window.XLSX.writeFile(wb, 'absensi.xlsx');
+    try {
+      const workbook = new window.ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Absensi');
+      sheet.columns = [
+        { header: 'No', key: 'no', width: 6 },
+        { header: 'Nama', key: 'name', width: 22 },
+        { header: 'Status', key: 'status', width: 14 },
+        { header: 'Tanggal', key: 'date', width: 12 },
+        { header: 'Jam', key: 'time', width: 10 },
+        { header: 'Foto', key: 'photo', width: 18 },
+      ];
+
+      for (let i = 0; i < state.rows.length; i += 1) {
+        const row = state.rows[i];
+        const rowIndex = i + 2;
+        sheet.addRow({
+          no: i + 1,
+          name: row.name,
+          status: row.status,
+          date: row.date,
+          time: row.time,
+          photo: '',
+        });
+        sheet.getRow(rowIndex).height = 52;
+
+        if (row.photoBase64) {
+          const smallPhoto = await downscaleDataUrl(row.photoBase64, 160, 0.5);
+          const imageId = workbook.addImage({
+            base64: smallPhoto,
+            extension: 'jpeg',
+          });
+          sheet.addImage(imageId, {
+            tl: { col: 5.1, row: rowIndex - 1 + 0.15 },
+            ext: { width: 96, height: 64 },
+          });
+        }
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      downloadBuffer(buffer, 'absensi.xlsx');
+    } catch (err) {
+      console.error('[export] error:', err);
+      showToast('Gagal export Excel: ' + err.message, 'error', 5500);
+    }
   }
 
   function applyFilter() {
@@ -473,7 +539,7 @@ import {
       state.filtered = state.rows.filter((row) => {
         return (
           (row.name || '').toLowerCase().includes(q) ||
-          (row.kelas || '').toLowerCase().includes(q) ||
+          (row.status || '').toLowerCase().includes(q) ||
           (row.date || '').toLowerCase().includes(q)
         );
       });
@@ -500,7 +566,7 @@ import {
         return {
           id: doc.id,
           name: data.name || '-',
-          kelas: data.kelas || '-',
+          status: data.status || data.kelas || '-',
           photoBase64: data.photoBase64 || '',
           date,
           time,
