@@ -70,24 +70,9 @@
             </div>
 
             <div class="form-group">
-              <label for="employee_id">NIP / ID Karyawan</label>
-              <input type="text" id="employee_id" name="employee_id" placeholder="Contoh: 198501012010" required />
-              <small class="error-text" data-error-for="employee_id"></small>
-            </div>
-
-            <div class="form-group">
-              <label for="type">Jenis Absensi</label>
-              <select id="type" name="type" required>
-                <option value="">-- Pilih jenis --</option>
-                <option value="masuk">Masuk</option>
-                <option value="pulang">Pulang</option>
-              </select>
-              <small class="error-text" data-error-for="type"></small>
-            </div>
-
-            <div class="form-group">
-              <label for="note">Catatan (opsional)</label>
-              <textarea id="note" name="note" rows="3" placeholder="Tambahkan catatan jika perlu..."></textarea>
+              <label for="kelas">Kelas</label>
+              <input type="text" id="kelas" name="kelas" placeholder="Contoh: XII RPL 1" required />
+              <small class="error-text" data-error-for="kelas"></small>
             </div>
 
             <div class="info-row">
@@ -120,14 +105,11 @@
           </div>
           <div class="card-actions">
             <button type="button" id="btnRefresh" class="btn btn-secondary">Refresh</button>
-            <a href="/api/attendance/export" class="btn btn-primary" id="btnExport">
-              Export Excel
-            </a>
           </div>
         </div>
 
         <div class="filter-bar">
-          <input type="text" id="searchInput" class="search-input" placeholder="Cari nama / NIP / jenis..." />
+          <input type="text" id="searchInput" class="search-input" placeholder="Cari nama / kelas..." />
         </div>
 
         <div class="table-wrapper">
@@ -137,16 +119,14 @@
                 <th>No</th>
                 <th>Foto</th>
                 <th>Nama</th>
-                <th>NIP / ID</th>
-                <th>Jenis</th>
+                <th>Kelas</th>
                 <th>Tanggal</th>
                 <th>Jam</th>
-                <th>Catatan</th>
               </tr>
             </thead>
             <tbody id="tableBody">
               <tr>
-                <td colspan="8" class="loading-cell">Memuat...</td>
+                <td colspan="6" class="loading-cell">Memuat...</td>
               </tr>
             </tbody>
           </table>
@@ -173,7 +153,6 @@
     </div>
   </footer>
 
-  <script src="js/config.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

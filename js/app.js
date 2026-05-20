@@ -3,57 +3,32 @@
  *
  * Tanggung jawab:
  * - Manajemen tab (Absen & Data)
- * - Autentikasi pop-up admin sederhana untuk akses tab Data
- * - Kontrol Kamera (WebRTC) & Capture foto
- * - Validasi form & submit absensi (multipart/form-data)
- * - Riwayat data absensi, pencarian/filter, & export Excel (ExcelJS)
+ * - Kontrol kamera (WebRTC) & capture foto
+ * - Validasi form & submit absensi ke Firestore
+ * - Upload foto ke Firebase Storage
+ * - Riwayat data absensi, pencarian/filter
  * - Modal preview foto & clock realtime
  */
+
+import { db, storage } from './firebase.js';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  query,
+  orderBy,
+} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
 (function () {
   'use strict';
 
-  // ------------------------------- Config ------------------------------
-  // Tentukan base URL API dengan prioritas:
-  // 1. APP_CONFIG.API_BASE_URL (dari js/config.js) — wajib diisi untuk GitHub Pages
-  // 2. Same-origin bila frontend di-serve oleh backend (port 3000/80/443)
-  // 3. Auto-detect: hostname yang sama di port 3000 (untuk LAN / Live Server)
-  // 4. Fallback http://localhost:3000 untuk skenario file://
-  const isGithubPages = window.location.hostname.endsWith('.github.io');
-  const cfgUrl = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
-
-  let API_BASE = '';
-  let BACKEND_NOT_CONFIGURED = false;
-
-  if (cfgUrl) {
-    API_BASE = cfgUrl.replace(/\/$/, '');
-  } else if (isGithubPages) {
-    // Deploy di GitHub Pages tanpa config = backend belum di-set.
-    // Jangan fallback ke same-origin (akan menghasilkan 404/405).
-    BACKEND_NOT_CONFIGURED = true;
-    API_BASE = '';
-  } else if (window.location.protocol.startsWith('http')) {
-    const port = window.location.port;
-    if (port === '3000' || port === '' || port === '80' || port === '443') {
-      API_BASE = '';
-    } else {
-      API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
-    }
-  } else {
-    API_BASE = 'http://localhost:3000';
-  }
-  console.info('[config] API_BASE =', API_BASE || '(same-origin)', 'configured:', !BACKEND_NOT_CONFIGURED);
-
-  // Peringatan mixed content: frontend HTTPS memanggil backend HTTP.
-  if (
-    window.location.protocol === 'https:' &&
-    API_BASE.startsWith('http://')
-  ) {
-    console.error(
-      '[config] Mixed content terdeteksi: frontend HTTPS memanggil backend HTTP. ' +
-      'Browser akan memblokir request. Backend wajib HTTPS.'
-    );
-  }
+  const attendanceCollection = collection(db, 'attendance');
 
   // Peringatan kamera tidak akan jalan bila bukan HTTPS / localhost.
   const isSecureContext =
@@ -65,43 +40,6 @@
       '[config] Konteks tidak aman (bukan HTTPS / localhost). ' +
       'Akses kamera kemungkinan akan ditolak browser.'
     );
-  }
-
-  /**
-   * Tampilkan banner setup di atas main content saat backend belum dikonfigurasi
-   * (skenario: deploy GitHub Pages tanpa edit js/config.js).
-   */
-  function showBackendSetupBanner() {
-    if (document.getElementById('backendSetupBanner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'backendSetupBanner';
-    banner.style.cssText =
-      'background:#fef3c7;border:1px solid #f59e0b;color:#92400e;' +
-      'padding:14px 18px;margin:16px 20px;border-radius:8px;' +
-      'font-size:14px;line-height:1.5;';
-    banner.innerHTML =
-      '<strong>Backend belum dikonfigurasi.</strong><br>' +
-      'Edit <code>js/config.js</code> dan isi <code>API_BASE_URL</code> dengan URL backend production Anda ' +
-      '(mis. <code>https://absensi-api.onrender.com</code>), lalu commit & push ke GitHub.<br>' +
-      '<small>Detail panduan ada di README.md.</small>';
-    const main = document.querySelector('.main-content');
-    if (main) main.insertBefore(banner, main.firstChild);
-  }
-
-  /**
-   * Wrapper fetch yang menolak request bila backend belum dikonfigurasi,
-   * sehingga tidak ada lagi 404/405 dari domain GitHub Pages.
-   */
-  async function apiFetch(pathOrUrl, options) {
-    if (BACKEND_NOT_CONFIGURED) {
-      const err = new Error('Backend belum dikonfigurasi. Edit js/config.js.');
-      err.code = 'BACKEND_NOT_CONFIGURED';
-      throw err;
-    }
-    const url = pathOrUrl.startsWith('http')
-      ? pathOrUrl
-      : API_BASE + pathOrUrl;
-    return fetch(url, options);
   }
 
   // ------------------------------- State -------------------------------
@@ -146,7 +84,6 @@
   const totalCount = $('#totalCount');
   const searchInput = $('#searchInput');
   const btnRefresh = $('#btnRefresh');
-  const btnExport = $('#btnExport');
 
   // Modal Preview
   const photoModal = $('#photoModal');
@@ -310,34 +247,13 @@
     setBadge(cameraStatus, 'Kamera aktif', 'success');
   }
 
-  // ------------------------------ WiFi Check ---------------------------
-  async function checkWifi() {
-    if (BACKEND_NOT_CONFIGURED) {
-      setBadge(wifiStatus, 'Backend belum di-set', 'warning');
-      return;
-    }
-    setBadge(wifiStatus, 'Cek jaringan...', 'muted');
-    try {
-      const res = await apiFetch('/api/health');
-      if (!res.ok) {
-        setBadge(wifiStatus, 'Server bermasalah', 'warning');
-        return;
-      }
-
-      // Endpoint ringan khusus pengecekan WiFi (GET, tanpa upload).
-      const probe = await apiFetch('/api/network-check');
-      if (probe.status === 403) {
-        setBadge(wifiStatus, 'WiFi tidak terdaftar', 'danger');
-        return;
-      }
-      if (!probe.ok) {
-        setBadge(wifiStatus, 'Cek jaringan gagal', 'warning');
-        return;
-      }
-      setBadge(wifiStatus, 'Jaringan OK', 'success');
-    } catch (err) {
-      console.error('[checkWifi] error:', err);
-      setBadge(wifiStatus, 'Tidak terhubung', 'danger');
+  // ------------------------------ Status -------------------------------
+  function updateFirebaseStatus() {
+    if (!wifiStatus) return;
+    if (navigator.onLine) {
+      setBadge(wifiStatus, 'Firebase siap', 'success');
+    } else {
+      setBadge(wifiStatus, 'Offline', 'danger');
     }
   }
 
@@ -360,12 +276,8 @@
       setError('name', 'Nama wajib diisi');
       valid = false;
     }
-    if (!values.employee_id || !values.employee_id.trim()) {
-      setError('employee_id', 'NIP/ID wajib diisi');
-      valid = false;
-    }
-    if (!values.type) {
-      setError('type', 'Pilih jenis absensi');
+    if (!values.kelas || !values.kelas.trim()) {
+      setError('kelas', 'Kelas wajib diisi');
       valid = false;
     }
     if (!state.capturedBlob) {
@@ -391,77 +303,48 @@
 
     const values = {
       name: form.name.value,
-      employee_id: form.employee_id.value,
-      type: form.type.value,
-      note: form.note.value,
+      kelas: form.kelas.value,
     };
 
     if (!validateForm(values)) return;
 
-    const fd = new FormData();
-    fd.append('name', values.name.trim());
-    fd.append('employee_id', values.employee_id.trim());
-    fd.append('type', values.type);
-    if (values.note) fd.append('note', values.note.trim());
-    fd.append('photo', state.capturedBlob, `absensi-${Date.now()}.jpg`);
-
     setSubmitLoading(true);
     try {
-      const res = await apiFetch('/api/attendance', {
-        method: 'POST',
-        body: fd,
+      const fileName = `attendance/${Date.now()}-${Math.round(Math.random() * 1e9)}.jpg`;
+      const storageRef = ref(storage, fileName);
+      await uploadBytes(storageRef, state.capturedBlob, {
+        contentType: 'image/jpeg',
       });
+      const photoUrl = await getDownloadURL(storageRef);
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const msg = data?.message || `Gagal mengirim absensi (HTTP ${res.status})`;
-        const detail = data?.detail ? ` — ${data.detail}` : '';
-        console.error('[submit] server response error:', res.status, data);
-        showToast(msg + detail, 'error', 5500);
-        return;
-      }
+      await addDoc(attendanceCollection, {
+        name: values.name.trim(),
+        kelas: values.kelas.trim(),
+        timestamp: serverTimestamp(),
+        fotoUrl: photoUrl,
+      });
 
       showToast('Absensi berhasil disimpan', 'success');
       form.reset();
       retakePhoto();
-    } catch (err) {
-      console.error('[submit] network/parse error:', err);
-      if (err.code === 'BACKEND_NOT_CONFIGURED') {
-        showToast('Backend belum dikonfigurasi. Edit js/config.js terlebih dahulu.', 'error', 6500);
-      } else {
-        showToast('Tidak dapat terhubung ke server: ' + err.message, 'error', 5500);
+      if (state.activeTab === 'data') {
+        loadData();
       }
+    } catch (err) {
+      console.error('[submit] firebase error:', err);
+      showToast('Gagal menyimpan absensi: ' + err.message, 'error', 5500);
     } finally {
       setSubmitLoading(false);
     }
   }
 
-  // -------------------------- Admin Auth & Data ------------------------
-  function getAdminPassword() {
-    let password = sessionStorage.getItem('admin_password');
-    if (!password) {
-      password = prompt('Masukkan Password Admin untuk melihat data:');
-      if (password) {
-        sessionStorage.setItem('admin_password', password);
-      }
-    }
-    return password;
-  }
-
-  function handleAuthError() {
-    sessionStorage.removeItem('admin_password');
-    alert('Password admin salah atau tidak sah!');
-    loadData();
-  }
-
   function setLoadingTable() {
     tableBody.innerHTML =
-      '<tr><td colspan="9" class="loading-cell">Memuat...</td></tr>';
+      '<tr><td colspan="6" class="loading-cell">Memuat...</td></tr>';
   }
 
   function setEmptyTable(message) {
-    tableBody.innerHTML = `<tr><td colspan="9" class="empty-cell">${escapeHtml(
+    tableBody.innerHTML = `<tr><td colspan="6" class="empty-cell">${escapeHtml(
       message
     )}</td></tr>`;
   }
@@ -478,10 +361,7 @@
 
     const html = state.filtered
       .map((row, idx) => {
-        const typeClass = row.type === 'masuk' ? 'masuk' : 'pulang';
-        const absolutePhotoUrl = row.photo_url.startsWith('http')
-          ? row.photo_url
-          : (API_BASE + row.photo_url);
+        const absolutePhotoUrl = row.fotoUrl || '';
         return `
           <tr>
             <td>${idx + 1}</td>
@@ -491,11 +371,9 @@
                 data-photo="${escapeHtml(absolutePhotoUrl)}" />
             </td>
             <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(row.employee_id)}</td>
-            <td><span class="type-badge ${typeClass}">${escapeHtml(row.type)}</span></td>
+            <td>${escapeHtml(row.kelas)}</td>
             <td>${escapeHtml(row.date)}</td>
             <td>${escapeHtml(row.time)}</td>
-            <td>${escapeHtml(row.note || '-')}</td>
           </tr>
         `;
       })
@@ -517,8 +395,7 @@
       state.filtered = state.rows.filter((row) => {
         return (
           (row.name || '').toLowerCase().includes(q) ||
-          (row.employee_id || '').toLowerCase().includes(q) ||
-          (row.type || '').toLowerCase().includes(q) ||
+          (row.kelas || '').toLowerCase().includes(q) ||
           (row.date || '').toLowerCase().includes(q)
         );
       });
@@ -528,44 +405,29 @@
   }
 
   async function loadData() {
-    if (BACKEND_NOT_CONFIGURED) {
-      setEmptyTable('Backend belum dikonfigurasi. Edit js/config.js terlebih dahulu.');
-      totalCount.textContent = 'Backend belum di-set';
-      if (btnExport) btnExport.removeAttribute('href');
-      return;
-    }
-
-    const password = getAdminPassword();
-    if (!password) {
-      // Jika user cancel password, kembalikan ke tab absen secara paksa
-      switchTab('absen');
-      return;
-    }
-
-    // Pasang token/password di link export Excel
-    if (btnExport) {
-      btnExport.href = `${API_BASE}/api/attendance/export?password=${encodeURIComponent(password)}`;
-    }
-
     setLoadingTable();
     totalCount.textContent = 'Memuat data...';
     try {
-      const res = await apiFetch('/api/attendance', {
-        headers: {
-          'X-Admin-Password': password,
-        },
+      const q = query(attendanceCollection, orderBy('timestamp', 'desc'));
+      const snapshot = await getDocs(q);
+      state.rows = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const ts = data.timestamp && data.timestamp.toDate ? data.timestamp.toDate() : null;
+        const date = ts
+          ? `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}`
+          : '-';
+        const time = ts
+          ? `${pad(ts.getHours())}:${pad(ts.getMinutes())}:${pad(ts.getSeconds())}`
+          : '-';
+        return {
+          id: doc.id,
+          name: data.name || '-',
+          kelas: data.kelas || '-',
+          fotoUrl: data.fotoUrl || '',
+          date,
+          time,
+        };
       });
-
-      if (res.status === 401) {
-        handleAuthError();
-        return;
-      }
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data?.message || 'Gagal memuat data');
-      }
-      state.rows = data.data || [];
       applyFilter();
     } catch (err) {
       console.error('[loadData] error:', err);
@@ -662,12 +524,9 @@
 
     // Jalankan Absen secara default
     switchTab('absen');
-    checkWifi();
-
-    // Tampilkan banner bila deploy GitHub Pages tanpa config backend
-    if (BACKEND_NOT_CONFIGURED) {
-      showBackendSetupBanner();
-    }
+    updateFirebaseStatus();
+    window.addEventListener('online', updateFirebaseStatus);
+    window.addEventListener('offline', updateFirebaseStatus);
   }
 
   document.addEventListener('DOMContentLoaded', init);
