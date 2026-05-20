@@ -24,6 +24,7 @@ import {
   'use strict';
 
   const attendanceCollection = collection(db, 'attendance');
+  const ADMIN_PASSWORD = 'admin 123';
 
   // Peringatan kamera tidak akan jalan bila bukan HTTPS / localhost.
   const isSecureContext =
@@ -452,6 +453,20 @@ import {
     document.body.style.overflow = '';
   }
 
+  function ensureAdminAccess() {
+    let cached = sessionStorage.getItem('admin_password');
+    if (!cached) {
+      cached = prompt('Masukkan Password Admin:');
+      if (cached) sessionStorage.setItem('admin_password', cached);
+    }
+    if (cached !== ADMIN_PASSWORD) {
+      sessionStorage.removeItem('admin_password');
+      showToast('Password admin salah', 'error');
+      return false;
+    }
+    return true;
+  }
+
   // --------------------------- Tab Navigation --------------------------
   function switchTab(tab) {
     if (tab === 'absen') {
@@ -462,6 +477,7 @@ import {
       sectionData.hidden = true;
       initCamera();
     } else if (tab === 'data') {
+      if (!ensureAdminAccess()) return;
       state.activeTab = 'data';
       tabData.classList.add('active');
       tabAbsen.classList.remove('active');
