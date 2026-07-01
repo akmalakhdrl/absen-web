@@ -1,0 +1,51 @@
+- generic [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - img "ARDEC" [ref=f2e6]
+        - generic [ref=f2e7]:
+          - heading "Automation and Development Center" [level=1] [ref=f2e8]
+          - paragraph [ref=f2e9]: Foto wajah · Validasi WiFi · Realtime
+      - navigation [ref=f2e10]:
+        - link "Absen" [ref=f2e11] [cursor=pointer]:
+          - /url: "#"
+        - link "Data" [ref=f2e12] [cursor=pointer]:
+          - /url: "#"
+  - main [ref=f2e13]:
+    - generic [ref=f2e15]:
+      - generic [ref=f2e16]:
+        - generic [ref=f2e17]:
+          - heading "Foto Wajah" [level=2] [ref=f2e18]
+          - generic [ref=f2e19]: Kamera aktif
+        - generic [ref=f2e20]:
+          - generic:
+            - paragraph: Memuat kamera...
+        - button "Ambil Foto" [active] [ref=f2e23] [cursor=pointer]
+      - generic [ref=f2e24]:
+        - generic [ref=f2e25]:
+          - heading "Data Absensi" [level=2] [ref=f2e26]
+          - generic [ref=f2e27]: Firebase siap
+        - generic [ref=f2e28]:
+          - generic [ref=f2e29]:
+            - generic [ref=f2e30]: Nama Lengkap
+            - textbox "Nama Lengkap" [ref=f2e31]:
+              - /placeholder: "Contoh: Budi Santoso"
+              - text: Tes User
+          - generic [ref=f2e33]:
+            - generic [ref=f2e34]: Jenis Absensi
+            - combobox "Jenis Absensi" [ref=f2e35]:
+              - option "-- Pilih --"
+              - option "Berangkat" [selected]
+              - option "Pulang"
+          - generic [ref=f2e37]:
+            - generic [ref=f2e38]:
+              - generic [ref=f2e39]: Tanggal
+              - generic [ref=f2e40]: 2026-07-01
+            - generic [ref=f2e41]:
+              - generic [ref=f2e42]: Jam
+              - generic [ref=f2e43]: 14:16:27
+          - button "Submit Absensi" [ref=f2e44] [cursor=pointer]:
+            - generic [ref=f2e45]: Submit Absensi
+  - status
+  - contentinfo [ref=f2e46]:
+    - paragraph [ref=f2e48]: © 2026 Sistem Absensi. All rights reserved.

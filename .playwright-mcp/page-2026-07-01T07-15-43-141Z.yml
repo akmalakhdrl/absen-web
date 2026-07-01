@@ -1,0 +1,48 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img "ARDEC" [ref=e6]
+        - generic [ref=e7]:
+          - heading "Automation and Development Center" [level=1] [ref=e8]
+          - paragraph [ref=e9]: Foto wajah · Validasi WiFi · Realtime
+      - navigation [ref=e10]:
+        - link "Absen" [ref=e11] [cursor=pointer]:
+          - /url: "#"
+        - link "Data" [ref=e12] [cursor=pointer]:
+          - /url: "#"
+  - main [ref=e13]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - heading "Foto Wajah" [level=2] [ref=e18]
+          - generic [ref=e19]: Menyiapkan kamera...
+        - paragraph [ref=e24]: Memuat kamera...
+        - button "Ambil Foto" [disabled] [ref=e26]
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Data Absensi" [level=2] [ref=e29]
+          - generic [ref=e30]: Cek jaringan...
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: Nama Lengkap
+            - textbox "Nama Lengkap" [ref=e34]:
+              - /placeholder: "Contoh: Budi Santoso"
+          - generic [ref=e36]:
+            - generic [ref=e37]: Jenis Absensi
+            - combobox "Jenis Absensi" [ref=e38]:
+              - option "-- Pilih --" [selected]
+              - option "Berangkat"
+              - option "Pulang"
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - generic [ref=e42]: Tanggal
+              - generic [ref=e43]: 2026-07-01
+            - generic [ref=e44]:
+              - generic [ref=e45]: Jam
+              - generic [ref=e46]: 14:15:43
+          - button "Submit Absensi" [ref=e47] [cursor=pointer]:
+            - generic [ref=e48]: Submit Absensi
+  - status
+  - contentinfo [ref=e49]:
+    - paragraph [ref=e51]: © 2026 Sistem Absensi. All rights reserved.

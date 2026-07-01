@@ -10,7 +10,7 @@
  * - Modal preview foto & clock realtime
  */
 
-import { db } from './firebase.js';
+import { auth, db } from './firebase.js';
 import {
   collection,
   addDoc,
@@ -24,12 +24,19 @@ import {
   startAfter,
   writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import {
+  browserLocalPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signInAnonymously,
+} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 
 (function () {
   'use strict';
 
   const attendanceCollection = collection(db, 'attendance');
   const ADMIN_PASSWORD = 'admin 123';
+  let authReadyPromise = null;
 
   // Peringatan kamera tidak akan jalan bila bukan HTTPS / localhost.
   const isSecureContext =
@@ -346,6 +353,93 @@ import {
     if (label) label.textContent = loading ? 'Mengirim...' : 'Submit Absensi';
   }
 
+  function waitForAuthUser(timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          unsubscribe();
+          reject(new Error('Auth wait timeout - user did not authenticate'));
+        }
+      }, timeoutMs);
+
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (!resolved) {
+          if (user) {
+            resolved = true;
+            clearTimeout(timer);
+            unsubscribe();
+            resolve(user);
+          }
+        }
+      });
+    });
+  }
+
+  async function waitForAuthReady(timeoutMs = 5000) {
+    if (typeof auth.authStateReady === 'function') {
+      try {
+        await Promise.race([
+          auth.authStateReady(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('authStateReady timeout')), timeoutMs))
+        ]);
+        return;
+      } catch (err) {
+        console.warn('[auth] authStateReady failed, falling back to onAuthStateChanged:', err);
+      }
+    }
+    await waitForAuthUser(timeoutMs);
+  }
+
+  async function ensureFirebaseAuth(retryCount = 0) {
+    if (!authReadyPromise || retryCount > 0) {
+      authReadyPromise = (async () => {
+        try {
+          await setPersistence(auth, browserLocalPersistence);
+        } catch (err) {
+          console.warn('[auth] persistence failed:', err);
+        }
+
+        if (!auth.currentUser) {
+          try {
+            await signInAnonymously(auth);
+          } catch (err) {
+            console.error('[auth] anonymous sign-in failed:', err?.code, err?.message);
+            if (err?.code === 'auth/operation-not-allowed') {
+              throw new Error('Anonymous Auth belum aktif di Firebase Console. Aktifkan terlebih dahulu.');
+            }
+            throw err;
+          }
+        }
+
+        try {
+          await waitForAuthReady(5000);
+        } catch (err) {
+          console.error('[auth] auth ready timeout:', err);
+          if (retryCount < 1) {
+            console.info('[auth] retrying auth...');
+            authReadyPromise = null;
+            return ensureFirebaseAuth(retryCount + 1);
+          }
+          throw err;
+        }
+
+        if (!auth.currentUser) {
+          throw new Error(
+            'Firebase Auth belum menghasilkan user anonim. Cek Anonymous sign-in dan Authorized domains di Firebase Console.'
+          );
+        }
+
+        console.info('[auth] current user:', auth.currentUser?.uid || '(none)');
+
+        return auth.currentUser;
+      })();
+    }
+
+    return authReadyPromise;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     clearErrors();
@@ -359,6 +453,10 @@ import {
 
     setSubmitLoading(true);
     try {
+      await ensureFirebaseAuth();
+      if (!auth.currentUser) {
+        throw new Error('Firebase Auth belum login. Cek Anonymous sign-in di Firebase Console.');
+      }
       const photoBase64 = await blobToDataUrl(state.capturedBlob);
 
       await addDoc(attendanceCollection, {
@@ -376,7 +474,27 @@ import {
       }
     } catch (err) {
       console.error('[submit] firebase error:', err);
-      showToast('Gagal menyimpan absensi: ' + err.message, 'error', 5500);
+      if (err?.code === 'auth/operation-not-allowed') {
+        showToast(
+          'Firebase Anonymous Auth belum aktif. Aktifkan Authentication > Sign-in method > Anonymous.',
+          'error',
+          7000
+        );
+      } else if (String(err?.message || '').includes('Firebase Auth belum login')) {
+        showToast(
+          'Login anonim belum berhasil. Cek Authentication > Anonymous lalu reload halaman.',
+          'error',
+          7000
+        );
+      } else if (String(err?.message || '').includes('Missing or insufficient permissions')) {
+        showToast(
+          'Firestore menolak akses. Cek rules dan pastikan Anonymous Auth sudah login.',
+          'error',
+          7000
+        );
+      } else {
+        showToast('Gagal menyimpan absensi: ' + err.message, 'error', 5500);
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -441,6 +559,7 @@ import {
     if (!id) return;
     if (!confirm('Hapus data ini?')) return;
     try {
+      await ensureFirebaseAuth();
       await deleteDoc(doc(db, 'attendance', id));
       showToast('Data berhasil dihapus', 'success');
       loadData();
@@ -455,6 +574,7 @@ import {
     if (!confirm('Hapus SEMUA data absensi? Tindakan ini tidak bisa dibatalkan.')) return;
     setLoadingTable();
     try {
+      await ensureFirebaseAuth();
       let lastDoc = null;
       while (true) {
         const q = lastDoc
@@ -486,6 +606,7 @@ import {
       return;
     }
     try {
+      await ensureFirebaseAuth();
       const workbook = new window.ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Absensi');
       sheet.columns = [
@@ -552,6 +673,7 @@ import {
     setLoadingTable();
     totalCount.textContent = 'Memuat data...';
     try {
+      await ensureFirebaseAuth();
       const q = query(attendanceCollection, orderBy('timestamp', 'desc'));
       const snapshot = await getDocs(q);
       state.rows = snapshot.docs.map((doc) => {
@@ -683,8 +805,15 @@ import {
     });
 
     // Jalankan Absen secara default
-    switchTab('absen');
-    updateFirebaseStatus();
+    ensureFirebaseAuth()
+      .catch((err) => {
+        console.error('[auth] init failed:', err);
+      })
+      .finally(() => {
+        switchTab('absen');
+        updateFirebaseStatus();
+      });
+
     window.addEventListener('online', updateFirebaseStatus);
     window.addEventListener('offline', updateFirebaseStatus);
   }
