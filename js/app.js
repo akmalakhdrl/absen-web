@@ -949,6 +949,17 @@ import {
       stopCamera();
     });
 
+    if (locationStatus) {
+      locationStatus.style.cursor = 'pointer';
+      locationStatus.title = 'Klik untuk cek ulang lokasi GPS';
+      locationStatus.addEventListener('click', checkLocation);
+    }
+    if (locationNotice) {
+      locationNotice.style.cursor = 'pointer';
+      locationNotice.title = 'Klik untuk cek ulang lokasi GPS';
+      locationNotice.addEventListener('click', checkLocation);
+    }
+
     // Jalankan Absen secara default
     ensureFirebaseAuth()
       .catch((err) => {
@@ -957,6 +968,7 @@ import {
       .finally(() => {
         switchTab('absen');
         updateFirebaseStatus();
+        checkLocation();
       });
 
     window.addEventListener('online', updateFirebaseStatus);
