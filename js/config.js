@@ -32,7 +32,13 @@ window.APP_CONFIG = {
   // === KONFIGURASI WAKTU OPERASIONAL ABSENSI ===
   TIME_RESTRICTION: {
     ENABLED: false, // Set false untuk mode tanpa batasan waktu (24 jam bebas), set true untuk membatasi jam
-    START_TIME: '07:00', // Jam mulai bisa absen
-    END_TIME: '17:00',   // Jam selesai bisa absen
+    BERANGKAT: {
+      START_TIME: '07:00', // Jam mulai absen berangkat
+      END_TIME: '13:00',   // Jam selesai absen berangkat
+    },
+    PULANG: {
+      START_TIME: '13:00', // Jam mulai absen pulang
+      END_TIME: '18:00',   // Jam selesai absen pulang
+    },
   },
 };

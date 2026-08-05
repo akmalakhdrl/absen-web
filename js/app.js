@@ -94,9 +94,11 @@ import {
 
   const adminTimeForm = $('#adminTimeForm');
   const adminTimeFreeMode = $('#adminTimeFreeMode');
-  const adminTimeStart = $('#adminTimeStart');
-  const adminTimeEnd = $('#adminTimeEnd');
-  const adminTimeInputsGroup = $('#adminTimeInputsGroup');
+  const adminTimeBerangkatStart = $('#adminTimeBerangkatStart');
+  const adminTimeBerangkatEnd = $('#adminTimeBerangkatEnd');
+  const adminTimePulangStart = $('#adminTimePulangStart');
+  const adminTimePulangEnd = $('#adminTimePulangEnd');
+  const adminTimeInputsContainer = $('#adminTimeInputsContainer');
 
   const adminBtnExport = $('#adminBtnExport');
   const adminBtnDeleteAll = $('#adminBtnDeleteAll');
@@ -375,8 +377,14 @@ import {
 
   const DEFAULT_TIME_CONFIG = {
     ENABLED: false,
-    START_TIME: '07:00',
-    END_TIME: '17:00',
+    BERANGKAT: {
+      START_TIME: '07:00',
+      END_TIME: '13:00',
+    },
+    PULANG: {
+      START_TIME: '13:00',
+      END_TIME: '18:00',
+    },
   };
 
   const settingsChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('absensi_settings_sync') : null;
@@ -450,7 +458,7 @@ import {
     return window.APP_CONFIG?.TIME_RESTRICTION || DEFAULT_TIME_CONFIG;
   }
 
-  function checkTimeRestriction() {
+  function checkTimeRestriction(selectedStatus) {
     const timeConfig = getTimeConfig();
     const timeNotice = $('#timeNotice');
 
@@ -458,38 +466,85 @@ import {
       if (timeNotice) {
         timeNotice.style.background = 'var(--color-bg)';
         timeNotice.style.color = 'var(--color-text)';
-        timeNotice.innerHTML = '⏰ Jam Absen: <strong>Bebas 24 Jam</strong>';
+        timeNotice.innerHTML = '⏰ Jam Absen: <strong>Bebas 24 Jam (Berangkat & Pulang)</strong>';
       }
       return { valid: true };
     }
 
+    const bStart = timeConfig.BERANGKAT?.START_TIME || timeConfig.START_TIME || '07:00';
+    const bEnd = timeConfig.BERANGKAT?.END_TIME || timeConfig.END_TIME || '13:00';
+    const pStart = timeConfig.PULANG?.START_TIME || '13:00';
+    const pEnd = timeConfig.PULANG?.END_TIME || '18:00';
+
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const [startH, startM] = (timeConfig.START_TIME || '07:00').split(':').map(Number);
-    const [endH, endM] = (timeConfig.END_TIME || '17:00').split(':').map(Number);
+    function isTimeInRange(startTimeStr, endTimeStr) {
+      if (!startTimeStr || !endTimeStr) return true;
+      const [startH, startM] = startTimeStr.split(':').map(Number);
+      const [endH, endM] = endTimeStr.split(':').map(Number);
+      const startMin = startH * 60 + startM;
+      const endMin = endH * 60 + endM;
+      return currentMinutes >= startMin && currentMinutes <= endMin;
+    }
 
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
+    const isBerangkatValid = isTimeInRange(bStart, bEnd);
+    const isPulangValid = isTimeInRange(pStart, pEnd);
 
-    const isValid = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    const currentStatus = selectedStatus || (form ? form.status.value : '');
 
     if (timeNotice) {
-      if (isValid) {
-        timeNotice.style.background = 'var(--color-success-bg)';
-        timeNotice.style.color = 'var(--color-success)';
-        timeNotice.innerHTML = `⏰ Jam Absen Berlangsung: <strong>${timeConfig.START_TIME} - ${timeConfig.END_TIME}</strong>`;
+      if (currentStatus === 'berangkat') {
+        if (isBerangkatValid) {
+          timeNotice.style.background = 'var(--color-success-bg)';
+          timeNotice.style.color = 'var(--color-success)';
+          timeNotice.innerHTML = `⏰ Jam Absen Berangkat: <strong>${bStart} - ${bEnd}</strong> (Buka)`;
+        } else {
+          timeNotice.style.background = 'var(--color-danger-bg)';
+          timeNotice.style.color = 'var(--color-danger)';
+          timeNotice.innerHTML = `❌ Absen Berangkat Tutup (Jam Operasional: <strong>${bStart} - ${bEnd}</strong>)`;
+        }
+      } else if (currentStatus === 'pulang') {
+        if (isPulangValid) {
+          timeNotice.style.background = 'var(--color-success-bg)';
+          timeNotice.style.color = 'var(--color-success)';
+          timeNotice.innerHTML = `⏰ Jam Absen Pulang: <strong>${pStart} - ${pEnd}</strong> (Buka)`;
+        } else {
+          timeNotice.style.background = 'var(--color-danger-bg)';
+          timeNotice.style.color = 'var(--color-danger)';
+          timeNotice.innerHTML = `❌ Absen Pulang Tutup (Jam Operasional: <strong>${pStart} - ${pEnd}</strong>)`;
+        }
       } else {
-        timeNotice.style.background = 'var(--color-danger-bg)';
-        timeNotice.style.color = 'var(--color-danger)';
-        timeNotice.innerHTML = `❌ Di Luar Jam Absen (Jam Operasional: <strong>${timeConfig.START_TIME} - ${timeConfig.END_TIME}</strong>)`;
+        timeNotice.style.background = 'var(--color-bg)';
+        timeNotice.style.color = 'var(--color-text)';
+        timeNotice.innerHTML = `⏰ Jam Operasional: <strong>Berangkat (${bStart} - ${bEnd})</strong> &middot; <strong>Pulang (${pStart} - ${pEnd})</strong>`;
       }
     }
 
-    return {
-      valid: isValid,
-      message: `Absensi ditolak: Di luar jam operasional (${timeConfig.START_TIME} - ${timeConfig.END_TIME})`,
-    };
+    if (currentStatus === 'berangkat') {
+      if (!isBerangkatValid) {
+        return {
+          valid: false,
+          message: `Absensi Berangkat ditolak: Di luar jam operasional Berangkat (${bStart} - ${bEnd})`,
+        };
+      }
+    } else if (currentStatus === 'pulang') {
+      if (!isPulangValid) {
+        return {
+          valid: false,
+          message: `Absensi Pulang ditolak: Di luar jam operasional Pulang (${pStart} - ${pEnd})`,
+        };
+      }
+    } else {
+      if (!isBerangkatValid && !isPulangValid) {
+        return {
+          valid: false,
+          message: `Absensi ditolak: Di luar jam operasional (Berangkat: ${bStart}-${bEnd}, Pulang: ${pStart}-${pEnd})`,
+        };
+      }
+    }
+
+    return { valid: true };
   }
 
   function listenToGlobalSettings() {
@@ -518,8 +573,14 @@ import {
         if (data.timeRestriction) {
           const timeCfg = {
             ENABLED: data.timeRestriction.enabled ?? DEFAULT_TIME_CONFIG.ENABLED,
-            START_TIME: data.timeRestriction.startTime ?? DEFAULT_TIME_CONFIG.START_TIME,
-            END_TIME: data.timeRestriction.endTime ?? DEFAULT_TIME_CONFIG.END_TIME,
+            BERANGKAT: {
+              START_TIME: data.timeRestriction.berangkat?.startTime ?? data.timeRestriction.startTime ?? '07:00',
+              END_TIME: data.timeRestriction.berangkat?.endTime ?? data.timeRestriction.endTime ?? '13:00',
+            },
+            PULANG: {
+              START_TIME: data.timeRestriction.pulang?.startTime ?? '13:00',
+              END_TIME: data.timeRestriction.pulang?.endTime ?? '18:00',
+            },
           };
           if (!window.APP_CONFIG) window.APP_CONFIG = {};
           window.APP_CONFIG.TIME_RESTRICTION = timeCfg;
@@ -1115,11 +1176,11 @@ import {
   }
 
   function updateTimeInputsDisabledState() {
-    if (adminTimeInputsGroup && adminTimeFreeMode) {
+    if (adminTimeInputsContainer && adminTimeFreeMode) {
       const isFree = adminTimeFreeMode.checked;
-      if (adminTimeStart) adminTimeStart.disabled = isFree;
-      if (adminTimeEnd) adminTimeEnd.disabled = isFree;
-      adminTimeInputsGroup.style.opacity = isFree ? '0.5' : '1';
+      const inputs = adminTimeInputsContainer.querySelectorAll('input');
+      inputs.forEach((input) => (input.disabled = isFree));
+      adminTimeInputsContainer.style.opacity = isFree ? '0.5' : '1';
     }
   }
 
@@ -1133,8 +1194,16 @@ import {
 
     const timeCfg = getTimeConfig();
     if (adminTimeFreeMode) adminTimeFreeMode.checked = !timeCfg.ENABLED;
-    if (adminTimeStart) adminTimeStart.value = timeCfg.START_TIME || '07:00';
-    if (adminTimeEnd) adminTimeEnd.value = timeCfg.END_TIME || '17:00';
+
+    const bStart = timeCfg.BERANGKAT?.START_TIME || timeCfg.START_TIME || '07:00';
+    const bEnd = timeCfg.BERANGKAT?.END_TIME || timeCfg.END_TIME || '13:00';
+    const pStart = timeCfg.PULANG?.START_TIME || '13:00';
+    const pEnd = timeCfg.PULANG?.END_TIME || '18:00';
+
+    if (adminTimeBerangkatStart) adminTimeBerangkatStart.value = bStart;
+    if (adminTimeBerangkatEnd) adminTimeBerangkatEnd.value = bEnd;
+    if (adminTimePulangStart) adminTimePulangStart.value = pStart;
+    if (adminTimePulangEnd) adminTimePulangEnd.value = pEnd;
 
     updateTimeInputsDisabledState();
   }
@@ -1251,8 +1320,14 @@ import {
         const isFreeMode = adminTimeFreeMode.checked;
         const newTimeConfig = {
           ENABLED: !isFreeMode,
-          START_TIME: adminTimeStart.value || '07:00',
-          END_TIME: adminTimeEnd.value || '17:00',
+          BERANGKAT: {
+            START_TIME: adminTimeBerangkatStart.value || '07:00',
+            END_TIME: adminTimeBerangkatEnd.value || '13:00',
+          },
+          PULANG: {
+            START_TIME: adminTimePulangStart.value || '13:00',
+            END_TIME: adminTimePulangEnd.value || '18:00',
+          },
         };
         if (!window.APP_CONFIG) window.APP_CONFIG = {};
         window.APP_CONFIG.TIME_RESTRICTION = newTimeConfig;
@@ -1268,17 +1343,23 @@ import {
             {
               timeRestriction: {
                 enabled: newTimeConfig.ENABLED,
-                startTime: newTimeConfig.START_TIME,
-                endTime: newTimeConfig.END_TIME,
+                berangkat: {
+                  startTime: newTimeConfig.BERANGKAT.START_TIME,
+                  endTime: newTimeConfig.BERANGKAT.END_TIME,
+                },
+                pulang: {
+                  startTime: newTimeConfig.PULANG.START_TIME,
+                  endTime: newTimeConfig.PULANG.END_TIME,
+                },
               },
               updatedAt: serverTimestamp(),
             },
             { merge: true }
           );
-          showToast('Pengaturan waktu berhasil disimpan & ter-sinkron', 'success');
+          showToast('Pengaturan waktu Berangkat & Pulang berhasil disimpan', 'success');
         } catch (err) {
           console.warn('[settings] firestore save time warning:', err);
-          showToast('Pengaturan waktu berhasil disimpan', 'success');
+          showToast('Pengaturan waktu Berangkat & Pulang berhasil disimpan', 'success');
         }
       });
 
@@ -1301,6 +1382,9 @@ import {
     btnCapture.addEventListener('click', capturePhoto);
     btnRetake.addEventListener('click', retakePhoto);
     form.addEventListener('submit', handleSubmit);
+    if (form && form.status) {
+      form.status.addEventListener('change', () => checkTimeRestriction());
+    }
 
     // Event Refresh & Cari Data
     btnRefresh.addEventListener('click', loadData);
