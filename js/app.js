@@ -405,11 +405,11 @@ import {
           };
 
           if (isValid) {
-            if (locationStatus) setBadge(locationStatus, 'Lokasi Valid', 'success');
+            if (locationStatus) setBadge(locationStatus, 'Lokasi Tervalidasi', 'success');
             if (locationNotice) {
               locationNotice.style.background = 'var(--color-success-bg)';
               locationNotice.style.color = 'var(--color-success)';
-              locationNotice.innerHTML = `✓ Lokasi Valid (Jarak: <strong>${distance} m</strong> dari target)`;
+              locationNotice.innerHTML = `✓ Lokasi sudah tervalidasi (Jarak: <strong>${distance} m</strong>)`;
             }
           } else {
             if (locationStatus) setBadge(locationStatus, `Di Luar Area (${distance}m)`, 'danger');
