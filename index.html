@@ -61,7 +61,10 @@
         <div class="card form-card">
           <div class="card-header">
             <h2>Data Absensi</h2>
-            <span id="wifiStatus" class="badge badge-muted">Cek jaringan...</span>
+            <div class="header-badges" style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <span id="wifiStatus" class="badge badge-muted">Cek jaringan...</span>
+              <span id="locationStatus" class="badge badge-muted">Cek lokasi GPS...</span>
+            </div>
           </div>
 
           <form id="attendanceForm" class="form" novalidate>
@@ -90,6 +93,10 @@
                 <span class="info-label">Jam</span>
                 <span id="currentTime" class="info-value">-</span>
               </div>
+            </div>
+
+            <div id="locationNotice" class="location-notice badge-muted" style="margin-bottom: 16px; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; text-align: center;">
+              📍 Lokasi Target: <strong>Jl. Gubernur Mochtar, Tembalang</strong>
             </div>
 
             <button type="submit" id="btnSubmit" class="btn btn-primary btn-block">

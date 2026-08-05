@@ -58,6 +58,14 @@ import {
     rows: [],
     filtered: [],
     searchTerm: '',
+    userLocation: {
+      lat: null,
+      lng: null,
+      distanceMeters: null,
+      isValid: false,
+      error: null,
+      checking: false,
+    },
   };
 
   // ------------------------------- Refs --------------------------------
@@ -78,6 +86,8 @@ import {
   const cameraOverlay = $('#cameraOverlay');
   const cameraStatus = $('#cameraStatus');
   const wifiStatus = $('#wifiStatus');
+  const locationStatus = $('#locationStatus');
+  const locationNotice = $('#locationNotice');
   const btnCapture = $('#btnCapture');
   const btnRetake = $('#btnRetake');
 
@@ -313,6 +323,125 @@ import {
     }
   }
 
+  // ---------------------------- Geolocation ----------------------------
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Radius bumi (meter)
+    const radLat1 = (lat1 * Math.PI) / 180;
+    const radLat2 = (lat2 * Math.PI) / 180;
+    const deltaLat = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLon = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(radLat1) *
+        Math.cos(radLat2) *
+        Math.sin(deltaLon / 2) *
+        Math.sin(deltaLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return Math.round(R * c);
+  }
+
+  function checkLocation() {
+    const locConfig = window.APP_CONFIG?.LOCATION;
+    if (!locConfig || !locConfig.ENFORCE_VALIDATION) {
+      state.userLocation.isValid = true;
+      if (locationStatus) setBadge(locationStatus, 'Lokasi: Bebas', 'muted');
+      if (locationNotice) {
+        locationNotice.style.background = 'var(--color-bg)';
+        locationNotice.style.color = 'var(--color-text)';
+        locationNotice.innerHTML = '📍 Validasi lokasi dinonaktifkan.';
+      }
+      return Promise.resolve(true);
+    }
+
+    if (!navigator.geolocation) {
+      state.userLocation.isValid = false;
+      state.userLocation.error = 'Browser tidak mendukung GPS';
+      if (locationStatus) setBadge(locationStatus, 'GPS tak didukung', 'danger');
+      if (locationNotice) {
+        locationNotice.style.background = 'var(--color-danger-bg)';
+        locationNotice.style.color = 'var(--color-danger)';
+        locationNotice.innerHTML = '❌ Browser Anda tidak mendukung Geolocation GPS.';
+      }
+      return Promise.resolve(false);
+    }
+
+    state.userLocation.checking = true;
+    if (locationStatus) setBadge(locationStatus, 'Cek lokasi GPS...', 'warning');
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const distance = calculateDistance(lat, lng, locConfig.LAT, locConfig.LNG);
+          const isValid = distance <= locConfig.MAX_RADIUS_METERS;
+
+          state.userLocation = {
+            lat,
+            lng,
+            distanceMeters: distance,
+            isValid,
+            error: null,
+            checking: false,
+          };
+
+          if (isValid) {
+            if (locationStatus) setBadge(locationStatus, 'Lokasi Valid', 'success');
+            if (locationNotice) {
+              locationNotice.style.background = 'var(--color-success-bg)';
+              locationNotice.style.color = 'var(--color-success)';
+              locationNotice.innerHTML = `✓ Lokasi Valid (Jarak: <strong>${distance} m</strong> dari ${locConfig.NAME})`;
+            }
+          } else {
+            if (locationStatus) setBadge(locationStatus, `Di Luar Area (${distance}m)`, 'danger');
+            if (locationNotice) {
+              locationNotice.style.background = 'var(--color-danger-bg)';
+              locationNotice.style.color = 'var(--color-danger)';
+              const distanceStr = distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance} meter`;
+              locationNotice.innerHTML = `✕ Anda di luar lokasi resmi (Jarak: <strong>${distanceStr}</strong> dari ${locConfig.NAME}). Radius maks: ${locConfig.MAX_RADIUS_METERS}m.`;
+            }
+          }
+          resolve(isValid);
+        },
+        (err) => {
+          console.warn('[geolocation] error:', err);
+          let errMsg = 'Akses lokasi ditolak / gagal';
+          if (err.code === err.PERMISSION_DENIED) {
+            errMsg = 'Izin lokasi GPS ditolak browser';
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            errMsg = 'Sinyal GPS tidak tersedia';
+          } else if (err.code === err.TIMEOUT) {
+            errMsg = 'Waktu minta lokasi habis';
+          }
+
+          state.userLocation = {
+            lat: null,
+            lng: null,
+            distanceMeters: null,
+            isValid: false,
+            error: errMsg,
+            checking: false,
+          };
+
+          if (locationStatus) setBadge(locationStatus, 'GPS Ditolak', 'danger');
+          if (locationNotice) {
+            locationNotice.style.background = 'var(--color-danger-bg)';
+            locationNotice.style.color = 'var(--color-danger)';
+            locationNotice.innerHTML = `⚠️ <strong>${errMsg}</strong>. Aktifkan GPS dan izinkan akses lokasi pada browser HP/PC Anda.`;
+          }
+          resolve(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }
+
   // ------------------------- Form Validation ---------------------------
   function clearErrors() {
     document.querySelectorAll('.form-group').forEach((g) => g.classList.remove('invalid'));
@@ -338,6 +467,15 @@ import {
     }
     if (!state.capturedBlob) {
       showToast('Ambil foto terlebih dahulu', 'warning');
+      valid = false;
+    }
+
+    const locConfig = window.APP_CONFIG?.LOCATION;
+    if (locConfig && locConfig.ENFORCE_VALIDATION && !state.userLocation.isValid) {
+      const errMsg = state.userLocation.error
+        ? `Absensi ditolak: ${state.userLocation.error}`
+        : `Absensi ditolak: Anda berada di luar area resmi (${locConfig.NAME})`;
+      showToast(errMsg, 'error', 5000);
       valid = false;
     }
     return valid;
@@ -464,6 +602,13 @@ import {
         status: values.status.trim(),
         timestamp: serverTimestamp(),
         photoBase64,
+        location: {
+          latitude: state.userLocation.lat,
+          longitude: state.userLocation.lng,
+          distanceMeters: state.userLocation.distanceMeters,
+          targetName: window.APP_CONFIG?.LOCATION?.NAME || 'Jl. Gubernur Mochtar, Tembalang',
+          validated: state.userLocation.isValid,
+        },
       });
 
       showToast('Absensi berhasil disimpan', 'success');

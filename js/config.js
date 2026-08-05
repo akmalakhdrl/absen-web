@@ -19,4 +19,13 @@ window.APP_CONFIG = {
   //   API_BASE_URL: "https://absensi-api.onrender.com",
   // Kosongkan ("") untuk mode development local.
   API_BASE_URL: '',
+
+  // === KONFIGURASI LOKASI GEOLOCATION (GPS) ===
+  LOCATION: {
+    NAME: 'Jl. Gubernur Mochtar, Tembalang, Semarang',
+    LAT: -7.0498,
+    LNG: 110.4375,
+    MAX_RADIUS_METERS: 100, // Radius toleransi dalam meter
+    ENFORCE_VALIDATION: true, // Set false jika ingin mematikan validasi lokasi
+  },
 };
