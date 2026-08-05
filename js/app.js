@@ -38,7 +38,23 @@ import {
 
   const attendanceCollection = collection(db, 'attendance');
   const settingsDocRef = doc(db, 'settings', 'global');
-  const ADMIN_PASSWORD = 'admin 123';
+  const DEFAULT_ADMIN_PASSWORD = 'admin 123';
+
+  function getAdminPassword() {
+    return (
+      window.APP_CONFIG?.ADMIN_PASSWORD ||
+      localStorage.getItem('admin_custom_password') ||
+      DEFAULT_ADMIN_PASSWORD
+    );
+  }
+
+  function setAdminPassword(newPassword) {
+    if (!window.APP_CONFIG) window.APP_CONFIG = {};
+    window.APP_CONFIG.ADMIN_PASSWORD = newPassword;
+    localStorage.setItem('admin_custom_password', newPassword);
+    sessionStorage.setItem('admin_password', newPassword);
+  }
+
   let authReadyPromise = null;
 
   // Peringatan kamera tidak akan jalan bila bukan HTTPS / localhost.
@@ -105,6 +121,11 @@ import {
   const adminBtnLogout = $('#adminBtnLogout');
   const btnToggleAdminPw = $('#btnToggleAdminPw');
   const adminPasswordText = $('#adminPasswordText');
+
+  const adminChangePasswordForm = $('#adminChangePasswordForm');
+  const adminOldPassword = $('#adminOldPassword');
+  const adminNewPassword = $('#adminNewPassword');
+  const adminConfirmPassword = $('#adminConfirmPassword');
 
   // Camera Elements
   const video = $('#video');
@@ -587,6 +608,10 @@ import {
           if (!window.APP_CONFIG) window.APP_CONFIG = {};
           window.APP_CONFIG.TIME_RESTRICTION = timeCfg;
           Object.assign(DEFAULT_TIME_CONFIG, timeCfg);
+        }
+
+        if (data.adminPassword) {
+          setAdminPassword(data.adminPassword);
         }
 
         checkLocation();
@@ -1164,12 +1189,13 @@ import {
   }
 
   function ensureAdminAccess() {
+    const currentPw = getAdminPassword();
     let cached = sessionStorage.getItem('admin_password');
     if (!cached) {
       cached = prompt('Masukkan Password Admin:');
       if (cached) sessionStorage.setItem('admin_password', cached);
     }
-    if (cached !== ADMIN_PASSWORD) {
+    if (cached !== currentPw) {
       sessionStorage.removeItem('admin_password');
       showToast('Password admin salah', 'error');
       return false;
@@ -1385,7 +1411,7 @@ import {
       btnToggleAdminPw.addEventListener('click', () => {
         isPwVisible = !isPwVisible;
         if (isPwVisible) {
-          adminPasswordText.textContent = ADMIN_PASSWORD;
+          adminPasswordText.textContent = getAdminPassword();
           btnToggleAdminPw.textContent = '🙈';
           btnToggleAdminPw.title = 'Sembunyikan Password';
         } else {
@@ -1393,6 +1419,59 @@ import {
           btnToggleAdminPw.textContent = '👁️';
           btnToggleAdminPw.title = 'Tampilkan Password';
         }
+      });
+    }
+
+    // Event Form Ganti Password Admin
+    if (adminChangePasswordForm) {
+      adminChangePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const oldPw = adminOldPassword.value;
+        const newPw = adminNewPassword.value;
+        const confirmPw = adminConfirmPassword.value;
+
+        if (oldPw !== getAdminPassword()) {
+          showToast('Password saat ini salah!', 'error');
+          return;
+        }
+
+        if (newPw.length < 3) {
+          showToast('Password baru minimal 3 karakter!', 'warning');
+          return;
+        }
+
+        if (newPw !== confirmPw) {
+          showToast('Konfirmasi password baru tidak cocok!', 'error');
+          return;
+        }
+
+        setAdminPassword(newPw);
+
+        try {
+          await ensureFirebaseAuth();
+          await setDoc(
+            settingsDocRef,
+            {
+              adminPassword: newPw,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (err) {
+          console.warn('[settings] save custom admin password firestore error:', err);
+        }
+
+        adminOldPassword.value = '';
+        adminNewPassword.value = '';
+        adminConfirmPassword.value = '';
+
+        if (adminPasswordText) adminPasswordText.textContent = '••••••••';
+        if (btnToggleAdminPw) {
+          btnToggleAdminPw.textContent = '👁️';
+          btnToggleAdminPw.title = 'Tampilkan Password';
+        }
+
+        showToast('Password Admin berhasil diubah!', 'success');
       });
     }
 
