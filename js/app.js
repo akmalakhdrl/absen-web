@@ -342,8 +342,20 @@ import {
     return Math.round(R * c);
   }
 
+  const DEFAULT_LOCATION_CONFIG = {
+    NAME: 'Jl. Gubernur Mochtar, Tembalang, Kec. Tembalang, Kota Semarang, Jawa Tengah 50275',
+    LAT: -7.0498,
+    LNG: 110.4375,
+    MAX_RADIUS_METERS: 100,
+    ENFORCE_VALIDATION: true,
+  };
+
+  function getLocConfig() {
+    return window.APP_CONFIG?.LOCATION || DEFAULT_LOCATION_CONFIG;
+  }
+
   function checkLocation() {
-    const locConfig = window.APP_CONFIG?.LOCATION;
+    const locConfig = getLocConfig();
     if (!locConfig || !locConfig.ENFORCE_VALIDATION) {
       state.userLocation.isValid = true;
       if (locationStatus) setBadge(locationStatus, 'Lokasi: Bebas', 'muted');
@@ -486,7 +498,7 @@ import {
       valid = false;
     }
 
-    const locConfig = window.APP_CONFIG?.LOCATION;
+    const locConfig = getLocConfig();
     if (locConfig && locConfig.ENFORCE_VALIDATION && !state.userLocation.isValid) {
       const errMsg = state.userLocation.error
         ? `Absensi Ditolak: ${state.userLocation.error}. Silakan aktifkan fitur Lokasi (GPS) pada device Anda!`
@@ -603,7 +615,7 @@ import {
       status: form.status.value,
     };
 
-    const locConfig = window.APP_CONFIG?.LOCATION;
+    const locConfig = getLocConfig();
     if (locConfig && locConfig.ENFORCE_VALIDATION && (!state.userLocation.isValid || state.userLocation.checking)) {
       setSubmitLoading(true);
       const isLocValid = await checkLocation();
@@ -636,7 +648,7 @@ import {
           latitude: state.userLocation.lat,
           longitude: state.userLocation.lng,
           distanceMeters: state.userLocation.distanceMeters,
-          targetName: window.APP_CONFIG?.LOCATION?.NAME || 'Jl. Gubernur Mochtar, Tembalang',
+          targetName: locConfig.NAME,
           validated: state.userLocation.isValid,
         },
       });
