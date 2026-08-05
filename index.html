@@ -96,8 +96,12 @@
               </div>
             </div>
 
-            <div id="locationNotice" class="location-notice badge-muted" style="margin-bottom: 16px; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; text-align: center; line-height: 1.4;">
+            <div id="locationNotice" class="location-notice badge-muted" style="margin-bottom: 10px; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; text-align: center; line-height: 1.4;">
               📍 Lokasi Target: <strong>Jl. Gubernur Mochtar, Tembalang, Kec. Tembalang, Kota Semarang, Jawa Tengah 50275</strong>
+            </div>
+
+            <div id="timeNotice" class="time-notice badge-muted" style="margin-bottom: 16px; padding: 8px; border-radius: var(--radius-sm); font-size: 13px; text-align: center;">
+              ⏰ Jam Absen: <strong>Bebas 24 Jam</strong>
             </div>
 
             <button type="submit" id="btnSubmit" class="btn btn-primary btn-block">
@@ -149,15 +153,29 @@
           </table>
         </div>
       </div>
+    </div>
+
     <!-- Halaman Admin Panel -->
     <div id="sectionAdmin" hidden>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
-        <!-- Card Pengaturan Lokasi -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 20px;">
+        <!-- Card 1: Pengaturan Validasi Lokasi -->
         <div class="card">
           <div class="card-header">
-            <h2>📍 Pengaturan Lokasi (Geofencing)</h2>
+            <h2>📍 Pengaturan Validasi Lokasi</h2>
           </div>
           <form id="adminLocationForm" class="form">
+            <div class="form-group" style="padding: 10px; background: var(--color-bg); border-radius: var(--radius-sm); margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="adminLocEnforce" style="width: 18px; height: 18px;" />
+                <label for="adminLocEnforce" style="margin: 0; font-weight: 600; cursor: pointer;">
+                  Aktifkan Validasi Lokasi (GPS Device)
+                </label>
+              </div>
+              <small style="display: block; margin-top: 4px; color: var(--color-muted);">
+                Hapus centang untuk mematikan validasi lokasi agar pengguna bisa absen dari mana saja.
+              </small>
+            </div>
+
             <div class="form-group">
               <label for="adminLocName">Nama Lokasi Target</label>
               <input type="text" id="adminLocName" required />
@@ -176,17 +194,48 @@
               <label for="adminLocRadius">Radius Toleransi (Meter)</label>
               <input type="number" id="adminLocRadius" min="10" max="5000" required />
             </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="adminLocEnforce" style="width: 18px; height: 18px;" />
-              <label for="adminLocEnforce" style="margin: 0; cursor: pointer;">Wajibkan Validasi Lokasi (GPS)</label>
-            </div>
             <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
               Simpan Pengaturan Lokasi
             </button>
           </form>
         </div>
 
-        <!-- Card Manajemen & Kontrol Admin -->
+        <!-- Card 2: Pengaturan Waktu Absensi -->
+        <div class="card">
+          <div class="card-header">
+            <h2>⏰ Pengaturan Waktu Absensi</h2>
+          </div>
+          <form id="adminTimeForm" class="form">
+            <div class="form-group" style="padding: 10px; background: var(--color-bg); border-radius: var(--radius-sm); margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="adminTimeFreeMode" style="width: 18px; height: 18px;" />
+                <label for="adminTimeFreeMode" style="margin: 0; font-weight: 600; cursor: pointer;">
+                  Mode Bebas Waktu (Tanpa Batasan Jam / 24 Jam)
+                </label>
+              </div>
+              <small style="display: block; margin-top: 4px; color: var(--color-muted);">
+                Centang opsi ini untuk mematikan penentuan jam absen.
+              </small>
+            </div>
+
+            <div id="adminTimeInputsGroup" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label for="adminTimeStart">Jam Buka (Mulai)</label>
+                <input type="time" id="adminTimeStart" value="07:00" required />
+              </div>
+              <div class="form-group">
+                <label for="adminTimeEnd">Jam Tutup (Selesai)</label>
+                <input type="time" id="adminTimeEnd" value="17:00" required />
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
+              Simpan Pengaturan Waktu
+            </button>
+          </form>
+        </div>
+
+        <!-- Card 3: Kontrol Sistem & Data -->
         <div class="card">
           <div class="card-header">
             <h2>⚙️ Kontrol Sistem & Data</h2>

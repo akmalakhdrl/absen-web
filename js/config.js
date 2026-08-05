@@ -26,6 +26,13 @@ window.APP_CONFIG = {
     LAT: -7.0498,
     LNG: 110.4375,
     MAX_RADIUS_METERS: 500, // Radius toleransi dalam meter
-    ENFORCE_VALIDATION: true, // Set true untuk mengaktifkan validasi lokasi GPS device
+    ENFORCE_VALIDATION: true, // Set false untuk mematikan validasi lokasi
+  },
+
+  // === KONFIGURASI WAKTU OPERASIONAL ABSENSI ===
+  TIME_RESTRICTION: {
+    ENABLED: false, // Set false untuk mode tanpa batasan waktu (24 jam bebas), set true untuk membatasi jam
+    START_TIME: '07:00', // Jam mulai bisa absen
+    END_TIME: '17:00',   // Jam selesai bisa absen
   },
 };

@@ -88,6 +88,13 @@ import {
   const adminLocLng = $('#adminLocLng');
   const adminLocRadius = $('#adminLocRadius');
   const adminLocEnforce = $('#adminLocEnforce');
+
+  const adminTimeForm = $('#adminTimeForm');
+  const adminTimeFreeMode = $('#adminTimeFreeMode');
+  const adminTimeStart = $('#adminTimeStart');
+  const adminTimeEnd = $('#adminTimeEnd');
+  const adminTimeInputsGroup = $('#adminTimeInputsGroup');
+
   const adminBtnExport = $('#adminBtnExport');
   const adminBtnDeleteAll = $('#adminBtnDeleteAll');
   const adminBtnLogout = $('#adminBtnLogout');
@@ -363,19 +370,72 @@ import {
     ENFORCE_VALIDATION: true,
   };
 
+  const DEFAULT_TIME_CONFIG = {
+    ENABLED: false,
+    START_TIME: '07:00',
+    END_TIME: '17:00',
+  };
+
   function getLocConfig() {
     return window.APP_CONFIG?.LOCATION || DEFAULT_LOCATION_CONFIG;
+  }
+
+  function getTimeConfig() {
+    return window.APP_CONFIG?.TIME_RESTRICTION || DEFAULT_TIME_CONFIG;
+  }
+
+  function checkTimeRestriction() {
+    const timeConfig = getTimeConfig();
+    const timeNotice = $('#timeNotice');
+
+    if (!timeConfig.ENABLED) {
+      if (timeNotice) {
+        timeNotice.style.background = 'var(--color-bg)';
+        timeNotice.style.color = 'var(--color-text)';
+        timeNotice.innerHTML = '⏰ Jam Absen: <strong>Bebas 24 Jam</strong>';
+      }
+      return { valid: true };
+    }
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const [startH, startM] = (timeConfig.START_TIME || '07:00').split(':').map(Number);
+    const [endH, endM] = (timeConfig.END_TIME || '17:00').split(':').map(Number);
+
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+
+    const isValid = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+
+    if (timeNotice) {
+      if (isValid) {
+        timeNotice.style.background = 'var(--color-success-bg)';
+        timeNotice.style.color = 'var(--color-success)';
+        timeNotice.innerHTML = `⏰ Jam Absen Berlangsung: <strong>${timeConfig.START_TIME} - ${timeConfig.END_TIME}</strong>`;
+      } else {
+        timeNotice.style.background = 'var(--color-danger-bg)';
+        timeNotice.style.color = 'var(--color-danger)';
+        timeNotice.innerHTML = `❌ Di Luar Jam Absen (Jam Operasional: <strong>${timeConfig.START_TIME} - ${timeConfig.END_TIME}</strong>)`;
+      }
+    }
+
+    return {
+      valid: isValid,
+      message: `Absensi ditolak: Di luar jam operasional (${timeConfig.START_TIME} - ${timeConfig.END_TIME})`,
+    };
   }
 
   function checkLocation() {
     const locConfig = getLocConfig();
     if (!locConfig || !locConfig.ENFORCE_VALIDATION) {
       state.userLocation.isValid = true;
+      state.userLocation.error = null;
       if (locationStatus) setBadge(locationStatus, 'Lokasi: Bebas', 'muted');
       if (locationNotice) {
         locationNotice.style.background = 'var(--color-bg)';
         locationNotice.style.color = 'var(--color-text)';
-        locationNotice.innerHTML = '📍 Validasi lokasi dinonaktifkan.';
+        locationNotice.innerHTML = '📍 Validasi lokasi dinonaktifkan (Absen Bebas Lokasi).';
       }
       return Promise.resolve(true);
     }
@@ -511,6 +571,12 @@ import {
       valid = false;
     }
 
+    const timeCheck = checkTimeRestriction();
+    if (!timeCheck.valid) {
+      showToast(timeCheck.message, 'error', 6000);
+      valid = false;
+    }
+
     const locConfig = getLocConfig();
     if (locConfig && locConfig.ENFORCE_VALIDATION && !state.userLocation.isValid) {
       const errMsg = state.userLocation.error
@@ -627,6 +693,12 @@ import {
       name: form.name.value,
       status: form.status.value,
     };
+
+    const timeCheck = checkTimeRestriction();
+    if (!timeCheck.valid) {
+      showToast(timeCheck.message, 'error', 6000);
+      return;
+    }
 
     const locConfig = getLocConfig();
     if (locConfig && locConfig.ENFORCE_VALIDATION && (!state.userLocation.isValid || state.userLocation.checking)) {
@@ -929,6 +1001,15 @@ import {
     return true;
   }
 
+  function updateTimeInputsDisabledState() {
+    if (adminTimeInputsGroup && adminTimeFreeMode) {
+      const isFree = adminTimeFreeMode.checked;
+      if (adminTimeStart) adminTimeStart.disabled = isFree;
+      if (adminTimeEnd) adminTimeEnd.disabled = isFree;
+      adminTimeInputsGroup.style.opacity = isFree ? '0.5' : '1';
+    }
+  }
+
   function populateAdminForm() {
     const loc = getLocConfig();
     if (adminLocName) adminLocName.value = loc.NAME || '';
@@ -936,6 +1017,13 @@ import {
     if (adminLocLng) adminLocLng.value = loc.LNG ?? 110.4375;
     if (adminLocRadius) adminLocRadius.value = loc.MAX_RADIUS_METERS ?? 500;
     if (adminLocEnforce) adminLocEnforce.checked = !!loc.ENFORCE_VALIDATION;
+
+    const timeCfg = getTimeConfig();
+    if (adminTimeFreeMode) adminTimeFreeMode.checked = !timeCfg.ENABLED;
+    if (adminTimeStart) adminTimeStart.value = timeCfg.START_TIME || '07:00';
+    if (adminTimeEnd) adminTimeEnd.value = timeCfg.END_TIME || '17:00';
+
+    updateTimeInputsDisabledState();
   }
 
   // --------------------------- Tab Navigation --------------------------
@@ -995,7 +1083,7 @@ import {
       });
     }
 
-    // Event Form Admin
+    // Event Form Admin Lokasi
     if (adminLocationForm) {
       adminLocationForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -1017,6 +1105,30 @@ import {
         showToast('Pengaturan lokasi berhasil disimpan', 'success');
       });
     }
+
+    // Event Form Admin Waktu
+    if (adminTimeForm) {
+      adminTimeForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const isFreeMode = adminTimeFreeMode.checked;
+        const newTimeConfig = {
+          ENABLED: !isFreeMode,
+          START_TIME: adminTimeStart.value || '07:00',
+          END_TIME: adminTimeEnd.value || '17:00',
+        };
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.TIME_RESTRICTION = newTimeConfig;
+        Object.assign(DEFAULT_TIME_CONFIG, newTimeConfig);
+
+        checkTimeRestriction();
+        showToast('Pengaturan waktu absensi berhasil disimpan', 'success');
+      });
+
+      if (adminTimeFreeMode) {
+        adminTimeFreeMode.addEventListener('change', updateTimeInputsDisabledState);
+      }
+    }
+
     if (adminBtnExport) adminBtnExport.addEventListener('click', exportToExcel);
     if (adminBtnDeleteAll) adminBtnDeleteAll.addEventListener('click', deleteAllData);
     if (adminBtnLogout) {
@@ -1085,6 +1197,7 @@ import {
         switchTab('absen');
         updateFirebaseStatus();
         checkLocation();
+        checkTimeRestriction();
       });
 
     window.addEventListener('online', updateFirebaseStatus);
