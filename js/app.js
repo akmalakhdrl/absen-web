@@ -412,13 +412,13 @@ import {
         },
         (err) => {
           console.warn('[geolocation] error:', err);
-          let errMsg = 'Akses lokasi ditolak / gagal';
+          let errMsg = 'GPS Device Tidak Aktif / Akses Ditolak';
           if (err.code === err.PERMISSION_DENIED) {
-            errMsg = 'Izin lokasi GPS ditolak browser';
+            errMsg = 'Izin lokasi GPS ditolak oleh browser';
           } else if (err.code === err.POSITION_UNAVAILABLE) {
-            errMsg = 'Sinyal GPS tidak tersedia';
+            errMsg = 'Lokasi / GPS pada device tidak aktif atau sinyal tidak ditemukan';
           } else if (err.code === err.TIMEOUT) {
-            errMsg = 'Waktu minta lokasi habis';
+            errMsg = 'Waktu permintaan lokasi GPS habis (Timeout)';
           }
 
           state.userLocation = {
@@ -430,11 +430,22 @@ import {
             checking: false,
           };
 
-          if (locationStatus) setBadge(locationStatus, 'GPS Ditolak', 'danger');
+          if (locationStatus) setBadge(locationStatus, 'GPS Off / Ditolak', 'danger');
           if (locationNotice) {
             locationNotice.style.background = 'var(--color-danger-bg)';
             locationNotice.style.color = 'var(--color-danger)';
-            locationNotice.innerHTML = `⚠️ <strong>${errMsg}</strong>. Aktifkan GPS dan izinkan akses lokasi pada browser. (Klik di sini untuk coba lagi)`;
+            locationNotice.innerHTML = `
+              <div style="font-weight: 600; margin-bottom: 4px;">❌ Absensi Dikunci: GPS Device Tidak Aktif</div>
+              <div style="font-size: 12px; margin-bottom: 6px;">${errMsg}. Wajib aktifkan fitur Lokasi (GPS) pada device/HP Anda dan izinkan akses lokasi pada browser.</div>
+              <button type="button" id="btnRetryGps" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px; cursor: pointer;">🔄 Aktifkan & Cek Ulang GPS</button>
+            `;
+            const btnRetryGps = document.getElementById('btnRetryGps');
+            if (btnRetryGps) {
+              btnRetryGps.addEventListener('click', (e) => {
+                e.stopPropagation();
+                checkLocation();
+              });
+            }
           }
           resolve(false);
         },
@@ -478,9 +489,9 @@ import {
     const locConfig = window.APP_CONFIG?.LOCATION;
     if (locConfig && locConfig.ENFORCE_VALIDATION && !state.userLocation.isValid) {
       const errMsg = state.userLocation.error
-        ? `Absensi ditolak: ${state.userLocation.error}`
-        : `Absensi ditolak: Anda berada di luar area resmi (${locConfig.NAME})`;
-      showToast(errMsg, 'error', 5000);
+        ? `Absensi Ditolak: ${state.userLocation.error}. Silakan aktifkan fitur Lokasi (GPS) pada device Anda!`
+        : `Absensi Ditolak: Anda berada di luar area lokasi resmi (${locConfig.NAME})`;
+      showToast(errMsg, 'error', 6000);
       valid = false;
     }
     return valid;
@@ -599,9 +610,9 @@ import {
       setSubmitLoading(false);
       if (!isLocValid) {
         const errMsg = state.userLocation.error
-          ? `Absensi ditolak: ${state.userLocation.error}`
-          : `Absensi ditolak: Anda berada di luar area lokasi resmi`;
-        showToast(errMsg, 'error', 5000);
+          ? `Absensi Ditolak: ${state.userLocation.error}. Wajib aktifkan GPS/lokasi device Anda!`
+          : `Absensi Ditolak: Anda berada di luar area lokasi resmi (Maksimal ${locConfig.MAX_RADIUS_METERS}m dari target)`;
+        showToast(errMsg, 'error', 6000);
         return;
       }
     }
