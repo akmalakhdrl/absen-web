@@ -74,10 +74,23 @@ import {
   // Nav Tabs
   const tabAbsen = $('#tabAbsen');
   const tabData = $('#tabData');
+  const tabAdmin = $('#tabAdmin');
 
   // Sections
   const sectionAbsen = $('#sectionAbsen');
   const sectionData = $('#sectionData');
+  const sectionAdmin = $('#sectionAdmin');
+
+  // Admin Form Elements
+  const adminLocationForm = $('#adminLocationForm');
+  const adminLocName = $('#adminLocName');
+  const adminLocLat = $('#adminLocLat');
+  const adminLocLng = $('#adminLocLng');
+  const adminLocRadius = $('#adminLocRadius');
+  const adminLocEnforce = $('#adminLocEnforce');
+  const adminBtnExport = $('#adminBtnExport');
+  const adminBtnDeleteAll = $('#adminBtnDeleteAll');
+  const adminBtnLogout = $('#adminBtnLogout');
 
   // Camera Elements
   const video = $('#video');
@@ -916,24 +929,47 @@ import {
     return true;
   }
 
+  function populateAdminForm() {
+    const loc = getLocConfig();
+    if (adminLocName) adminLocName.value = loc.NAME || '';
+    if (adminLocLat) adminLocLat.value = loc.LAT ?? -7.0498;
+    if (adminLocLng) adminLocLng.value = loc.LNG ?? 110.4375;
+    if (adminLocRadius) adminLocRadius.value = loc.MAX_RADIUS_METERS ?? 500;
+    if (adminLocEnforce) adminLocEnforce.checked = !!loc.ENFORCE_VALIDATION;
+  }
+
   // --------------------------- Tab Navigation --------------------------
   function switchTab(tab) {
     if (tab === 'absen') {
       state.activeTab = 'absen';
       tabAbsen.classList.add('active');
       tabData.classList.remove('active');
+      if (tabAdmin) tabAdmin.classList.remove('active');
       sectionAbsen.hidden = false;
       sectionData.hidden = true;
+      if (sectionAdmin) sectionAdmin.hidden = true;
       initCamera();
     } else if (tab === 'data') {
-      if (!ensureAdminAccess()) return;
       state.activeTab = 'data';
       tabData.classList.add('active');
       tabAbsen.classList.remove('active');
+      if (tabAdmin) tabAdmin.classList.remove('active');
       sectionAbsen.hidden = true;
       sectionData.hidden = false;
+      if (sectionAdmin) sectionAdmin.hidden = true;
       stopCamera();
       loadData();
+    } else if (tab === 'admin') {
+      if (!ensureAdminAccess()) return;
+      state.activeTab = 'admin';
+      if (tabAdmin) tabAdmin.classList.add('active');
+      tabAbsen.classList.remove('active');
+      tabData.classList.remove('active');
+      sectionAbsen.hidden = true;
+      sectionData.hidden = true;
+      if (sectionAdmin) sectionAdmin.hidden = false;
+      stopCamera();
+      populateAdminForm();
     }
   }
 
@@ -952,6 +988,44 @@ import {
       e.preventDefault();
       switchTab('data');
     });
+    if (tabAdmin) {
+      tabAdmin.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab('admin');
+      });
+    }
+
+    // Event Form Admin
+    if (adminLocationForm) {
+      adminLocationForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newConfig = {
+          NAME: adminLocName.value.trim(),
+          LAT: parseFloat(adminLocLat.value),
+          LNG: parseFloat(adminLocLng.value),
+          MAX_RADIUS_METERS: parseInt(adminLocRadius.value, 10),
+          ENFORCE_VALIDATION: adminLocEnforce.checked,
+        };
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.LOCATION = newConfig;
+        Object.assign(DEFAULT_LOCATION_CONFIG, newConfig);
+
+        const targetEl = document.querySelector('#locationNotice strong');
+        if (targetEl) targetEl.textContent = newConfig.NAME;
+
+        checkLocation();
+        showToast('Pengaturan lokasi berhasil disimpan', 'success');
+      });
+    }
+    if (adminBtnExport) adminBtnExport.addEventListener('click', exportToExcel);
+    if (adminBtnDeleteAll) adminBtnDeleteAll.addEventListener('click', deleteAllData);
+    if (adminBtnLogout) {
+      adminBtnLogout.addEventListener('click', () => {
+        sessionStorage.removeItem('admin_password');
+        showToast('Sesi Admin telah keluar', 'info');
+        switchTab('absen');
+      });
+    }
 
     // Event Kamera & Form
     btnCapture.addEventListener('click', capturePhoto);

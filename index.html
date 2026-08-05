@@ -22,6 +22,7 @@
       <nav class="nav">
         <a href="#" id="tabAbsen" class="nav-link active">Absen</a>
         <a href="#" id="tabData" class="nav-link">Data</a>
+        <a href="#" id="tabAdmin" class="nav-link">Admin</a>
       </nav>
     </div>
   </header>
@@ -146,6 +147,72 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    <!-- Halaman Admin Panel -->
+    <div id="sectionAdmin" hidden>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        <!-- Card Pengaturan Lokasi -->
+        <div class="card">
+          <div class="card-header">
+            <h2>📍 Pengaturan Lokasi (Geofencing)</h2>
+          </div>
+          <form id="adminLocationForm" class="form">
+            <div class="form-group">
+              <label for="adminLocName">Nama Lokasi Target</label>
+              <input type="text" id="adminLocName" required />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label for="adminLocLat">Latitude</label>
+                <input type="number" step="any" id="adminLocLat" required />
+              </div>
+              <div class="form-group">
+                <label for="adminLocLng">Longitude</label>
+                <input type="number" step="any" id="adminLocLng" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="adminLocRadius">Radius Toleransi (Meter)</label>
+              <input type="number" id="adminLocRadius" min="10" max="5000" required />
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="adminLocEnforce" style="width: 18px; height: 18px;" />
+              <label for="adminLocEnforce" style="margin: 0; cursor: pointer;">Wajibkan Validasi Lokasi (GPS)</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
+              Simpan Pengaturan Lokasi
+            </button>
+          </form>
+        </div>
+
+        <!-- Card Manajemen & Kontrol Admin -->
+        <div class="card">
+          <div class="card-header">
+            <h2>⚙️ Kontrol Sistem & Data</h2>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="padding: 12px; border-radius: var(--radius-sm); background: var(--color-bg); font-size: 14px;">
+              <div><strong>Status Admin:</strong> <span class="badge badge-success">Terautentikasi</span></div>
+              <div style="margin-top: 6px; font-size: 13px; color: var(--color-muted);">Password Admin: <code>admin 123</code></div>
+            </div>
+            <div>
+              <label style="font-weight: 600; font-size: 14px; display: block; margin-bottom: 8px;">Aksi Data Absensi:</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <button type="button" id="adminBtnExport" class="btn btn-primary" style="flex: 1;">
+                  📊 Export Excel (.xlsx)
+                </button>
+                <button type="button" id="adminBtnDeleteAll" class="btn btn-secondary" style="flex: 1; background: var(--color-danger-bg); color: var(--color-danger); border-color: transparent;">
+                  🗑️ Hapus Semua Data
+                </button>
+              </div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button type="button" id="adminBtnLogout" class="btn btn-secondary btn-block">
+                🔒 Keluar Sesi Admin
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
