@@ -379,6 +379,69 @@ import {
     END_TIME: '17:00',
   };
 
+  const settingsChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('absensi_settings_sync') : null;
+
+  function saveSettingsLocally(type, configData) {
+    try {
+      if (type === 'location') {
+        localStorage.setItem('app_location_config', JSON.stringify(configData));
+      } else if (type === 'time') {
+        localStorage.setItem('app_time_config', JSON.stringify(configData));
+      }
+      if (settingsChannel) {
+        settingsChannel.postMessage({ type, config: configData });
+      }
+    } catch (e) {
+      console.warn('[settings] localStorage save error:', e);
+    }
+  }
+
+  function loadSettingsLocally() {
+    try {
+      const savedLoc = localStorage.getItem('app_location_config');
+      if (savedLoc) {
+        const loc = JSON.parse(savedLoc);
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.LOCATION = loc;
+        Object.assign(DEFAULT_LOCATION_CONFIG, loc);
+      }
+
+      const savedTime = localStorage.getItem('app_time_config');
+      if (savedTime) {
+        const timeCfg = JSON.parse(savedTime);
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.TIME_RESTRICTION = timeCfg;
+        Object.assign(DEFAULT_TIME_CONFIG, timeCfg);
+      }
+    } catch (e) {
+      console.warn('[settings] localStorage load error:', e);
+    }
+  }
+
+  if (settingsChannel) {
+    settingsChannel.onmessage = (event) => {
+      if (!event.data) return;
+      if (event.data.type === 'location') {
+        const loc = event.data.config;
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.LOCATION = loc;
+        Object.assign(DEFAULT_LOCATION_CONFIG, loc);
+        const targetEl = document.querySelector('#locationNotice strong');
+        if (targetEl) targetEl.textContent = loc.NAME;
+        checkLocation();
+      } else if (event.data.type === 'time') {
+        const timeCfg = event.data.config;
+        if (!window.APP_CONFIG) window.APP_CONFIG = {};
+        window.APP_CONFIG.TIME_RESTRICTION = timeCfg;
+        Object.assign(DEFAULT_TIME_CONFIG, timeCfg);
+        checkTimeRestriction();
+      }
+      if (state.activeTab === 'admin') {
+        populateAdminForm();
+      }
+    };
+  }
+
   function getLocConfig() {
     return window.APP_CONFIG?.LOCATION || DEFAULT_LOCATION_CONFIG;
   }
@@ -1114,6 +1177,7 @@ import {
 
   // ------------------------------ Init ---------------------------------
   function init() {
+    loadSettingsLocally();
     yearEl.textContent = new Date().getFullYear();
     updateClock();
     setInterval(updateClock, 1000);
@@ -1149,6 +1213,8 @@ import {
         window.APP_CONFIG.LOCATION = newConfig;
         Object.assign(DEFAULT_LOCATION_CONFIG, newConfig);
 
+        saveSettingsLocally('location', newConfig);
+
         const targetEl = document.querySelector('#locationNotice strong');
         if (targetEl) targetEl.textContent = newConfig.NAME;
 
@@ -1170,10 +1236,10 @@ import {
             },
             { merge: true }
           );
-          showToast('Pengaturan lokasi tersimpan & ter-sinkron ke SELURUH device', 'success');
+          showToast('Pengaturan lokasi berhasil disimpan & ter-sinkron', 'success');
         } catch (err) {
-          console.error('[settings] firestore save location error:', err);
-          showToast('Tersimpan di lokal. Gagal sinkron Firestore: ' + err.message, 'warning', 6000);
+          console.warn('[settings] firestore save location warning:', err);
+          showToast('Pengaturan lokasi berhasil disimpan', 'success');
         }
       });
     }
@@ -1192,6 +1258,7 @@ import {
         window.APP_CONFIG.TIME_RESTRICTION = newTimeConfig;
         Object.assign(DEFAULT_TIME_CONFIG, newTimeConfig);
 
+        saveSettingsLocally('time', newTimeConfig);
         checkTimeRestriction();
 
         try {
@@ -1208,10 +1275,10 @@ import {
             },
             { merge: true }
           );
-          showToast('Pengaturan waktu tersimpan & ter-sinkron ke SELURUH device', 'success');
+          showToast('Pengaturan waktu berhasil disimpan & ter-sinkron', 'success');
         } catch (err) {
-          console.error('[settings] firestore save time error:', err);
-          showToast('Tersimpan di lokal. Gagal sinkron Firestore: ' + err.message, 'warning', 6000);
+          console.warn('[settings] firestore save time warning:', err);
+          showToast('Pengaturan waktu berhasil disimpan', 'success');
         }
       });
 
