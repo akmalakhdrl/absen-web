@@ -268,7 +268,13 @@
           <div style="display: flex; flex-direction: column; gap: 14px;">
             <div style="padding: 12px; border-radius: var(--radius-sm); background: var(--color-bg); font-size: 14px;">
               <div><strong>Status Admin:</strong> <span class="badge badge-success">Terautentikasi</span></div>
-              <div style="margin-top: 6px; font-size: 13px; color: var(--color-muted);">Password Admin: <code>admin 123</code></div>
+              <div style="margin-top: 8px; font-size: 13px; color: var(--color-muted); display: flex; align-items: center; gap: 8px;">
+                <span>Password Admin:</span>
+                <code id="adminPasswordText" style="font-weight: 600; font-family: monospace; font-size: 14px; letter-spacing: 1px;">••••••••</code>
+                <button type="button" id="btnToggleAdminPw" title="Tampilkan Password" style="background: var(--color-card-bg); border: 1px solid var(--color-border); cursor: pointer; font-size: 14px; padding: 2px 8px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                  👁️
+                </button>
+              </div>
             </div>
             <div>
               <label style="font-weight: 600; font-size: 14px; display: block; margin-bottom: 8px;">Aksi Data Absensi:</label>

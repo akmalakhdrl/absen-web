@@ -103,6 +103,8 @@ import {
   const adminBtnExport = $('#adminBtnExport');
   const adminBtnDeleteAll = $('#adminBtnDeleteAll');
   const adminBtnLogout = $('#adminBtnLogout');
+  const btnToggleAdminPw = $('#btnToggleAdminPw');
+  const adminPasswordText = $('#adminPasswordText');
 
   // Camera Elements
   const video = $('#video');
@@ -1375,6 +1377,22 @@ import {
         sessionStorage.removeItem('admin_password');
         showToast('Sesi Admin telah keluar', 'info');
         switchTab('absen');
+      });
+    }
+
+    if (btnToggleAdminPw && adminPasswordText) {
+      let isPwVisible = false;
+      btnToggleAdminPw.addEventListener('click', () => {
+        isPwVisible = !isPwVisible;
+        if (isPwVisible) {
+          adminPasswordText.textContent = ADMIN_PASSWORD;
+          btnToggleAdminPw.textContent = '🙈';
+          btnToggleAdminPw.title = 'Sembunyikan Password';
+        } else {
+          adminPasswordText.textContent = '••••••••';
+          btnToggleAdminPw.textContent = '👁️';
+          btnToggleAdminPw.title = 'Tampilkan Password';
+        }
       });
     }
 
