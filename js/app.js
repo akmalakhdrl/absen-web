@@ -1038,6 +1038,7 @@ import {
       if (sectionAdmin) sectionAdmin.hidden = true;
       initCamera();
     } else if (tab === 'data') {
+      if (!ensureAdminAccess()) return;
       state.activeTab = 'data';
       tabData.classList.add('active');
       tabAbsen.classList.remove('active');
