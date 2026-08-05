@@ -23,6 +23,8 @@ import {
   limit,
   startAfter,
   writeBatch,
+  setDoc,
+  onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 import {
   browserLocalPersistence,
@@ -35,6 +37,7 @@ import {
   'use strict';
 
   const attendanceCollection = collection(db, 'attendance');
+  const settingsDocRef = doc(db, 'settings', 'global');
   const ADMIN_PASSWORD = 'admin 123';
   let authReadyPromise = null;
 
@@ -424,6 +427,53 @@ import {
       valid: isValid,
       message: `Absensi ditolak: Di luar jam operasional (${timeConfig.START_TIME} - ${timeConfig.END_TIME})`,
     };
+  }
+
+  function listenToGlobalSettings() {
+    onSnapshot(
+      settingsDocRef,
+      (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.data();
+
+        if (data.location) {
+          const loc = {
+            NAME: data.location.name ?? DEFAULT_LOCATION_CONFIG.NAME,
+            LAT: data.location.lat ?? DEFAULT_LOCATION_CONFIG.LAT,
+            LNG: data.location.lng ?? DEFAULT_LOCATION_CONFIG.LNG,
+            MAX_RADIUS_METERS: data.location.maxRadiusMeters ?? DEFAULT_LOCATION_CONFIG.MAX_RADIUS_METERS,
+            ENFORCE_VALIDATION: data.location.enforceValidation ?? DEFAULT_LOCATION_CONFIG.ENFORCE_VALIDATION,
+          };
+          if (!window.APP_CONFIG) window.APP_CONFIG = {};
+          window.APP_CONFIG.LOCATION = loc;
+          Object.assign(DEFAULT_LOCATION_CONFIG, loc);
+
+          const targetEl = document.querySelector('#locationNotice strong');
+          if (targetEl) targetEl.textContent = loc.NAME;
+        }
+
+        if (data.timeRestriction) {
+          const timeCfg = {
+            ENABLED: data.timeRestriction.enabled ?? DEFAULT_TIME_CONFIG.ENABLED,
+            START_TIME: data.timeRestriction.startTime ?? DEFAULT_TIME_CONFIG.START_TIME,
+            END_TIME: data.timeRestriction.endTime ?? DEFAULT_TIME_CONFIG.END_TIME,
+          };
+          if (!window.APP_CONFIG) window.APP_CONFIG = {};
+          window.APP_CONFIG.TIME_RESTRICTION = timeCfg;
+          Object.assign(DEFAULT_TIME_CONFIG, timeCfg);
+        }
+
+        checkLocation();
+        checkTimeRestriction();
+
+        if (state.activeTab === 'admin') {
+          populateAdminForm();
+        }
+      },
+      (err) => {
+        console.warn('[settings] onSnapshot error:', err);
+      }
+    );
   }
 
   function checkLocation() {
@@ -1084,9 +1134,9 @@ import {
       });
     }
 
-    // Event Form Admin Lokasi
+    // Event Form Admin Lokasi (Sinkron Cloud Firestore ke Seluruh Device)
     if (adminLocationForm) {
-      adminLocationForm.addEventListener('submit', (e) => {
+      adminLocationForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newConfig = {
           NAME: adminLocName.value.trim(),
@@ -1103,13 +1153,34 @@ import {
         if (targetEl) targetEl.textContent = newConfig.NAME;
 
         checkLocation();
-        showToast('Pengaturan lokasi berhasil disimpan', 'success');
+
+        try {
+          await ensureFirebaseAuth();
+          await setDoc(
+            settingsDocRef,
+            {
+              location: {
+                name: newConfig.NAME,
+                lat: newConfig.LAT,
+                lng: newConfig.LNG,
+                maxRadiusMeters: newConfig.MAX_RADIUS_METERS,
+                enforceValidation: newConfig.ENFORCE_VALIDATION,
+              },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          showToast('Pengaturan lokasi tersimpan & ter-sinkron ke SELURUH device', 'success');
+        } catch (err) {
+          console.error('[settings] firestore save location error:', err);
+          showToast('Tersimpan di lokal. Gagal sinkron Firestore: ' + err.message, 'warning', 6000);
+        }
       });
     }
 
-    // Event Form Admin Waktu
+    // Event Form Admin Waktu (Sinkron Cloud Firestore ke Seluruh Device)
     if (adminTimeForm) {
-      adminTimeForm.addEventListener('submit', (e) => {
+      adminTimeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const isFreeMode = adminTimeFreeMode.checked;
         const newTimeConfig = {
@@ -1122,7 +1193,26 @@ import {
         Object.assign(DEFAULT_TIME_CONFIG, newTimeConfig);
 
         checkTimeRestriction();
-        showToast('Pengaturan waktu absensi berhasil disimpan', 'success');
+
+        try {
+          await ensureFirebaseAuth();
+          await setDoc(
+            settingsDocRef,
+            {
+              timeRestriction: {
+                enabled: newTimeConfig.ENABLED,
+                startTime: newTimeConfig.START_TIME,
+                endTime: newTimeConfig.END_TIME,
+              },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          showToast('Pengaturan waktu tersimpan & ter-sinkron ke SELURUH device', 'success');
+        } catch (err) {
+          console.error('[settings] firestore save time error:', err);
+          showToast('Tersimpan di lokal. Gagal sinkron Firestore: ' + err.message, 'warning', 6000);
+        }
       });
 
       if (adminTimeFreeMode) {
@@ -1199,6 +1289,7 @@ import {
         updateFirebaseStatus();
         checkLocation();
         checkTimeRestriction();
+        listenToGlobalSettings();
       });
 
     window.addEventListener('online', updateFirebaseStatus);
