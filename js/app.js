@@ -346,7 +346,7 @@ import {
     NAME: 'Jl. Gubernur Mochtar, Tembalang, Kec. Tembalang, Kota Semarang, Jawa Tengah 50275',
     LAT: -7.0498,
     LNG: 110.4375,
-    MAX_RADIUS_METERS: 100,
+    MAX_RADIUS_METERS: 500,
     ENFORCE_VALIDATION: true,
   };
 
