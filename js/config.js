@@ -22,10 +22,10 @@ window.APP_CONFIG = {
 
   // === KONFIGURASI LOKASI GEOLOCATION (GPS) ===
   LOCATION: {
-    NAME: 'Jl. Gubernur Mochtar, Tembalang, Semarang',
+    NAME: 'Jl. Gubernur Mochtar, Tembalang, Kec. Tembalang, Kota Semarang, Jawa Tengah 50275',
     LAT: -7.0498,
     LNG: 110.4375,
     MAX_RADIUS_METERS: 100, // Radius toleransi dalam meter
-    ENFORCE_VALIDATION: true, // Set false jika ingin mematikan validasi lokasi
+    ENFORCE_VALIDATION: true, // Set true untuk mengaktifkan validasi lokasi GPS device
   },
 };

@@ -369,6 +369,11 @@ import {
 
     state.userLocation.checking = true;
     if (locationStatus) setBadge(locationStatus, 'Cek lokasi GPS...', 'warning');
+    if (locationNotice) {
+      locationNotice.style.background = 'var(--color-warning-bg)';
+      locationNotice.style.color = 'var(--color-warning)';
+      locationNotice.innerHTML = '🔄 Memeriksa lokasi GPS device... Mohon izinkan akses lokasi pada browser HP/PC Anda.';
+    }
 
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
@@ -392,7 +397,7 @@ import {
             if (locationNotice) {
               locationNotice.style.background = 'var(--color-success-bg)';
               locationNotice.style.color = 'var(--color-success)';
-              locationNotice.innerHTML = `✓ Lokasi Valid (Jarak: <strong>${distance} m</strong> dari ${locConfig.NAME})`;
+              locationNotice.innerHTML = `✓ Lokasi Valid (Jarak: <strong>${distance} m</strong> dari target)`;
             }
           } else {
             if (locationStatus) setBadge(locationStatus, `Di Luar Area (${distance}m)`, 'danger');
@@ -400,7 +405,7 @@ import {
               locationNotice.style.background = 'var(--color-danger-bg)';
               locationNotice.style.color = 'var(--color-danger)';
               const distanceStr = distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance} meter`;
-              locationNotice.innerHTML = `✕ Anda di luar lokasi resmi (Jarak: <strong>${distanceStr}</strong> dari ${locConfig.NAME}). Radius maks: ${locConfig.MAX_RADIUS_METERS}m.`;
+              locationNotice.innerHTML = `✕ Anda di luar lokasi resmi (Jarak: <strong>${distanceStr}</strong>). Radius maks: ${locConfig.MAX_RADIUS_METERS}m.`;
             }
           }
           resolve(isValid);
@@ -429,13 +434,13 @@ import {
           if (locationNotice) {
             locationNotice.style.background = 'var(--color-danger-bg)';
             locationNotice.style.color = 'var(--color-danger)';
-            locationNotice.innerHTML = `⚠️ <strong>${errMsg}</strong>. Aktifkan GPS dan izinkan akses lokasi pada browser HP/PC Anda.`;
+            locationNotice.innerHTML = `⚠️ <strong>${errMsg}</strong>. Aktifkan GPS dan izinkan akses lokasi pada browser. (Klik di sini untuk coba lagi)`;
           }
           resolve(false);
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000,
           maximumAge: 0,
         }
       );
@@ -586,6 +591,20 @@ import {
       name: form.name.value,
       status: form.status.value,
     };
+
+    const locConfig = window.APP_CONFIG?.LOCATION;
+    if (locConfig && locConfig.ENFORCE_VALIDATION && (!state.userLocation.isValid || state.userLocation.checking)) {
+      setSubmitLoading(true);
+      const isLocValid = await checkLocation();
+      setSubmitLoading(false);
+      if (!isLocValid) {
+        const errMsg = state.userLocation.error
+          ? `Absensi ditolak: ${state.userLocation.error}`
+          : `Absensi ditolak: Anda berada di luar area lokasi resmi`;
+        showToast(errMsg, 'error', 5000);
+        return;
+      }
+    }
 
     if (!validateForm(values)) return;
 
@@ -973,6 +992,14 @@ import {
 
     window.addEventListener('online', updateFirebaseStatus);
     window.addEventListener('offline', updateFirebaseStatus);
+
+    // Auto update lokasi saat pengguna kembali ke tab web
+    window.addEventListener('focus', () => {
+      if (state.activeTab === 'absen') checkLocation();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && state.activeTab === 'absen') checkLocation();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
